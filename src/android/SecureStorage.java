@@ -3,7 +3,6 @@ package com.crypho.plugins;
 import java.lang.reflect.Method;
 import java.util.Hashtable;
 
-import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.util.Log;
 import android.util.Base64;
@@ -22,8 +21,6 @@ import org.json.JSONArray;
 public class SecureStorage extends CordovaPlugin {
     private static final String TAG = "SecureStorage";
 
-    private static final int CREATE_CONFIRM_DEVICE_CREDENTIAL_REQUEST_CODE = 0x2F6A9F8C;
-
     private static final boolean SUPPORTS_NATIVE_AES = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
     private static final boolean SUPPORTED = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
 
@@ -33,7 +30,6 @@ public class SecureStorage extends CordovaPlugin {
     private Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
     private String INIT_SERVICE;
     private volatile CallbackContext initContext, secureDeviceContext;
-    private volatile boolean initContextAllowed = false;
     private volatile boolean initContextRunning = false;
 
     @Override
@@ -52,24 +48,18 @@ public class SecureStorage extends CordovaPlugin {
                 public void run() {
                     initContextRunning = true;
                     try {
-                        if (initContextAllowed) {
-                            String alias = service2alias(INIT_SERVICE);
-                            if (!RSA.isEntryAvailable(alias)) {
-                                //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
-                                getStorage(INIT_SERVICE).clear();
-                                RSA.createKeyPair(getContext(), alias);
-                            }
-                            initSuccess(initContext);
-                        } else {
-                            Log.e(TAG, "Init failed : Authentication failed");
-                            initContext.error("Authentication failed");
+                        String alias = service2alias(INIT_SERVICE);
+                        if (!RSA.isEntryAvailable(alias)) {
+                            //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
+                            getStorage(INIT_SERVICE).clear();
+                            RSA.createKeyPair(getContext(), alias);
                         }
+                        initSuccess(initContext);
                     } catch (Exception e) {
                         Log.e(TAG, "Init failed :", e);
                         initContext.error(e.getMessage());
                     } finally {
                         initContext = null;
-                        initContextAllowed = false;
                         initContextRunning = false;
                     }
                 }
@@ -108,7 +98,6 @@ public class SecureStorage extends CordovaPlugin {
                 callbackContext.error(MSG_DEVICE_NOT_SECURE);
             } else if (!RSA.isEntryAvailable(alias)) {
                 initContext = callbackContext;
-                initContextAllowed = false;
                 unlockCredentials();
             } else {
                 initSuccess(callbackContext);
@@ -272,33 +261,21 @@ public class SecureStorage extends CordovaPlugin {
         });
     }
 
-    private void unlockCredentialsUsingUnlockIntent() {
-        initContextAllowed = true;
-        Intent intent = new Intent("com.android.credentials.UNLOCK");
-        startActivity(intent);
-    }
-
     // Made in context of RNMT-3255 and RNMT-3540
     private void unlockCredentialsUsingKeyguardManager() {
         KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
         Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
 
-        if (intent != null) {
-            startActivityForResult(intent, CREATE_CONFIRM_DEVICE_CREDENTIAL_REQUEST_CODE);
-
-        } else {
+        if (intent == null) {
             intent = new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD);
-            startActivity(intent);
         }
+
+        startActivity(intent);
     }
 
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        if (requestCode == CREATE_CONFIRM_DEVICE_CREDENTIAL_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
-            initContextAllowed = true;
-        }
-
-        super.onActivityResult(requestCode, resultCode, intent);
+    private void unlockCredentialsUsingUnlockIntent() {
+        Intent intent = new Intent("com.android.credentials.UNLOCK");
+        startActivity(intent);
     }
 
     private Context getContext() {
@@ -309,7 +286,4 @@ public class SecureStorage extends CordovaPlugin {
         cordova.getActivity().startActivity(intent);
     }
 
-    private void startActivityForResult(Intent intent, int requestCode) {
-        cordova.startActivityForResult(this, intent, requestCode);
-    }
 }
