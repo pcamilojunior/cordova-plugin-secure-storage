@@ -3,6 +3,7 @@ package com.crypho.plugins;
 import java.lang.reflect.Method;
 import java.util.Hashtable;
 
+import android.annotation.TargetApi;
 import android.app.admin.DevicePolicyManager;
 import android.util.Log;
 import android.util.Base64;
@@ -67,7 +68,7 @@ public class SecureStorage extends CordovaPlugin {
                 Log.e(TAG, MSG_DEVICE_NOT_SECURE);
                 callbackContext.error(MSG_DEVICE_NOT_SECURE);
             } else if (!RSA.isEntryAvailable(alias)) {
-                unlockCredentials(IntentRequestType.INIT, service, callbackContext);
+                handleLockScreen(IntentRequestType.INIT, service, callbackContext);
             } else {
                 initSuccess(callbackContext);
             }
@@ -158,7 +159,7 @@ public class SecureStorage extends CordovaPlugin {
         }
 
         if ("secureDevice".equals(action)) {
-            unlockCredentials(IntentRequestType.SECURE_DEVICE, null, callbackContext);
+            handleLockScreen(IntentRequestType.SECURE_DEVICE, null, callbackContext);
             return true;
         }
         //SharedPreferences interface
@@ -203,8 +204,7 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     private String service2alias(String service) {
-        String res = getContext().getPackageName() + "." + service;
-        return res;
+        return getContext().getPackageName() + "." + service;
     }
 
     private SharedPreferencesHandler getStorage(String service) {
@@ -224,61 +224,83 @@ public class SecureStorage extends CordovaPlugin {
         context.success(SUPPORTS_NATIVE_AES ? 1 : 0);
     }
 
-    private void unlockCredentials(final IntentRequestType type, final String service, final CallbackContext callbackContext) {
+    private void handleLockScreen(final IntentRequestType type, final String service, final CallbackContext callbackContext) {
+
         cordova.getActivity().runOnUiThread(new Runnable() {
             public void run() {
 
-                if (Build.VERSION.SDK_INT > 28) {
-                    unlockCredentialsUsingKeyguardManager(type, service, callbackContext);
+                if (Build.VERSION.SDK_INT >= 29) {
+                    handleLockScreenUsingKeyguardManagerAndSetNewPasswordIntent(type, service, callbackContext);
                 } else {
-                    unlockCredentialsUsingUnlockIntent(type, service, callbackContext);
+                    handleLockScreenUsingUnlockIntent(type, service, callbackContext);
                 }
             }
         });
     }
 
-    // Made in context of RNMT-3255 and RNMT-3540
-    private void unlockCredentialsUsingKeyguardManager(IntentRequestType type, String service, CallbackContext callbackContext) {
+    // Made in context of RNMT-3255, RNMT-3540 and RNMT-3803
+    @TargetApi(29)
+    private void handleLockScreenUsingKeyguardManagerAndSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+
         KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
-        Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
+        Intent unlockIntent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
 
-        if (intent == null) {
-            intent = new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD);
+        if (unlockIntent != null) {
+
+            // Lock screen is already defined, carry on without using an intent
+            handleCompletedRequest(type, service, callbackContext);
+
+        } else {
+
+            // Lock screen is not defined, so we request a new one
+            Intent intent = new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD);
+            intentRequestQueue.queueRequest(type, service, intent, callbackContext);
         }
-
-        intentRequestQueue.queueRequest(type, service, intent, callbackContext);
     }
 
-    private void unlockCredentialsUsingUnlockIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+    private void handleLockScreenUsingUnlockIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+
+        // Requests a new lock screen or requests to unlock if required
         Intent intent = new Intent("com.android.credentials.UNLOCK");
         intentRequestQueue.queueRequest(type, service, intent, callbackContext);
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+
         super.onActivityResult(requestCode, resultCode, intent);
 
         IntentRequest request = intentRequestQueue.notifyActivityResultCalled();
+
+        IntentRequestType type = request.getType();
+        String service = request.getService();
         CallbackContext callbackContext = request.getCallbackContext();
 
-        switch (request.getType()) {
+        handleCompletedRequest(type, service, callbackContext);
+    }
+
+    private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext) {
+
+        switch (type) {
+
             case INIT:
-                completeInit(request.getService(), callbackContext);
+                handleCompletedInit(service, callbackContext);
                 break;
 
             case SECURE_DEVICE:
-                completeSecureDevice(callbackContext);
+                handleCompletedSecureDevice(callbackContext);
                 break;
         }
     }
 
-    private void completeInit(final String service, final CallbackContext callbackContext) {
+    private void handleCompletedInit(final String service, final CallbackContext callbackContext) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
                 try {
                     // RSA already has mutual exclusion in all its public methods individually
                     // But this block requires mutual exclusion as a whole
                     synchronized (SecureStorage.this) {
+
                         String alias = service2alias(service);
                         if (!RSA.isEntryAvailable(alias)) {
                             //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
@@ -286,7 +308,9 @@ public class SecureStorage extends CordovaPlugin {
                             RSA.createKeyPair(getContext(), alias);
                         }
                     }
+
                     initSuccess(callbackContext);
+
                 } catch (Exception e) {
                     Log.e(TAG, "Init failed :", e);
                     callbackContext.error(e.getMessage());
@@ -295,9 +319,11 @@ public class SecureStorage extends CordovaPlugin {
         });
     }
 
-    private void completeSecureDevice(CallbackContext callbackContext) {
+    private void handleCompletedSecureDevice(CallbackContext callbackContext) {
+
         if (isDeviceSecure()) {
             callbackContext.success();
+
         } else {
             callbackContext.error(MSG_DEVICE_NOT_SECURE);
         }
