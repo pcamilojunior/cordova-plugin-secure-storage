@@ -276,13 +276,12 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     private void handleLockScreen(final IntentRequestType type, final String service, final CallbackContext callbackContext) {
-        Log.v(TAG, "Handling lock screen");
-
         cordova.getActivity().runOnUiThread(new Runnable() {
             public void run() {
+                Log.v(TAG, "Handling lock screen");
 
                 if (Build.VERSION.SDK_INT >= 29) { // >= Android 10
-                    handleLockScreenUsingKeyguardManagerAndSetNewPasswordIntent(type, service, callbackContext);
+                    handleLockScreenUsingNoOpOrSetNewPasswordIntent(type, service, callbackContext);
                 } else {
                     handleLockScreenUsingUnlockIntent(type, service, callbackContext);
                 }
@@ -292,13 +291,10 @@ public class SecureStorage extends CordovaPlugin {
 
     // Made in context of RNMT-3255, RNMT-3540 and RNMT-3803
     @TargetApi(29)
-    private void handleLockScreenUsingKeyguardManagerAndSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
-        Log.v(TAG, "Handling lock screen via KeyguardManager and ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
+    private void handleLockScreenUsingNoOpOrSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Handling lock screen via no action or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
 
-        KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
-        Intent unlockIntent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
-
-        if (unlockIntent != null) {
+        if (isDeviceSecure()) {
             Log.v(TAG, "Lock screen is defined, no unlock action is performed in Android 10 or newer");
 
             // Lock screen is already defined, carry on without using an intent
@@ -359,6 +355,7 @@ public class SecureStorage extends CordovaPlugin {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
                 try {
+
                     // RSA already has mutual exclusion in all its public methods individually
                     // But this block requires mutual exclusion as a whole
                     synchronized (SecureStorage.this) {
