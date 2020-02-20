@@ -42,39 +42,63 @@ public class SecureStorage extends CordovaPlugin {
     private boolean isDeviceSecure() {
         KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
         try {
+
+            // This tries to call isDeviceSecure, which was only added in API 23
+            // The method checks if there is a lock screen that requires authentication defined (not None or Swipe)
+            // This is preferred to the older method isKeyguardSecure, that also returns true if the SIM card is unlocked
             Method isSecure = null;
             isSecure = keyguardManager.getClass().getMethod("isDeviceSecure");
             return ((Boolean) isSecure.invoke(keyguardManager)).booleanValue();
+
         } catch (Exception e) {
+
+            // Best effort if the preferred method is unavailable
             return keyguardManager.isKeyguardSecure();
         }
     }
 
     @Override
     public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext) throws JSONException {
+
         if (!SUPPORTED) {
             Log.w(TAG, MSG_NOT_SUPPORTED);
             callbackContext.error(MSG_NOT_SUPPORTED);
             return false;
         }
+
+        // Called when a SecureStorage Javascript object is created
+        // Returns an error if a lock screen that requires authentication is not defined
+        // Creates a private key for an alias based on the name of the store (if it does not exist already)
         if ("init".equals(action)) {
             Log.v(TAG, "Called init action");
+
+            // Get key alias based on the name of the store
             String service = args.getString(0);
             String alias = service2alias(service);
 
+            // Create helper object to manage a SharedPreferences object for the alias
             SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias + "_SS", getContext());
             putStorage(service, PREFS);
 
             if (!isDeviceSecure()) {
+                // Lock screen that requires authentication is not defined
                 Log.e(TAG, MSG_DEVICE_NOT_SECURE);
                 callbackContext.error(MSG_DEVICE_NOT_SECURE);
+
             } else if (!RSA.isEntryAvailable(alias)) {
+                // Key for alias does not exist
                 handleLockScreen(IntentRequestType.INIT, service, callbackContext);
+
             } else {
+                // No actions are required to init correctly
                 initSuccess(callbackContext);
             }
+
             return true;
         }
+
+        // Store a key/enc-value pair in SharedPreferences
+        // The encryption uses the key with an alias associated with the store name
         if ("set".equals(action)) {
             Log.v(TAG, "Called set action");
             final String service = args.getString(0);
@@ -98,6 +122,9 @@ public class SecureStorage extends CordovaPlugin {
             });
             return true;
         }
+
+        // Get the enc-value associated with a key in SharedPreferences
+        // The decryption uses the key with an alias associated with the store name
         if ("get".equals(action)) {
             Log.v(TAG, "Called get action");
             final String service = args.getString(0);
@@ -127,6 +154,8 @@ public class SecureStorage extends CordovaPlugin {
             }
             return true;
         }
+
+        // Decrypt a message using the key with an alias associated with the store name
         if ("decrypt_rsa".equals(action)) {
             Log.v(TAG, "Called decrypt_rsa action");
             final String service = args.getString(0);
@@ -145,6 +174,8 @@ public class SecureStorage extends CordovaPlugin {
             });
             return true;
         }
+
+        // Encrypt a message using the key with an alias associated with the store name
         if ("encrypt_rsa".equals(action)) {
             Log.v(TAG, "Called encrypt_rsa action");
             final String service = args.getString(0);
@@ -163,12 +194,16 @@ public class SecureStorage extends CordovaPlugin {
             return true;
         }
 
+        // Check if there is a lock screen that requires authentication defined
+        // It gives the user the possibility of defining one if there isn't one
+        // Used by the Ciphered Local Storage Plugin at startup
         if ("secureDevice".equals(action)) {
             Log.v(TAG, "Called secureDevice action");
             handleLockScreen(IntentRequestType.SECURE_DEVICE, null, callbackContext);
             return true;
         }
-        //SharedPreferences interface
+
+        // The remaining actions are the SharedPreferences interface
         if ("remove".equals(action)) {
             Log.v(TAG, "Called remove action");
             String service = args.getString(0);
@@ -177,6 +212,7 @@ public class SecureStorage extends CordovaPlugin {
             callbackContext.success();
             return true;
         }
+
         if ("store".equals(action)) {
             Log.v(TAG, "Called store action");
             String service = args.getString(0);
@@ -186,6 +222,7 @@ public class SecureStorage extends CordovaPlugin {
             callbackContext.success();
             return true;
         }
+
         if ("fetch".equals(action)) {
             Log.v(TAG, "Called fetch action");
             String service = args.getString(0);
@@ -198,12 +235,14 @@ public class SecureStorage extends CordovaPlugin {
             }
             return true;
         }
+
         if ("keys".equals(action)) {
             Log.v(TAG, "Called keys action");
             String service = args.getString(0);
             callbackContext.success(new JSONArray(getStorage(service).keys()));
             return true;
         }
+
         if ("clear".equals(action)) {
             Log.v(TAG, "Called clear action");
             String service = args.getString(0);
@@ -211,6 +250,7 @@ public class SecureStorage extends CordovaPlugin {
             callbackContext.success();
             return true;
         }
+
         return false;
     }
 
@@ -241,7 +281,7 @@ public class SecureStorage extends CordovaPlugin {
         cordova.getActivity().runOnUiThread(new Runnable() {
             public void run() {
 
-                if (Build.VERSION.SDK_INT >= 29) {
+                if (Build.VERSION.SDK_INT >= 29) { // >= Android 10
                     handleLockScreenUsingKeyguardManagerAndSetNewPasswordIntent(type, service, callbackContext);
                 } else {
                     handleLockScreenUsingUnlockIntent(type, service, callbackContext);
