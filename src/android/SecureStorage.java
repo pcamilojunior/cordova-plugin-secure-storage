@@ -3,6 +3,7 @@ package com.crypho.plugins;
 import java.lang.reflect.Method;
 import java.util.Hashtable;
 
+import android.annotation.TargetApi;
 import android.app.admin.DevicePolicyManager;
 import android.util.Log;
 import android.util.Base64;
@@ -41,39 +42,65 @@ public class SecureStorage extends CordovaPlugin {
     private boolean isDeviceSecure() {
         KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
         try {
+
+            // This tries to call isDeviceSecure, which was only added in API 23
+            // The method checks if there is a lock screen that requires authentication defined (not None or Swipe)
+            // This is preferred to the older method isKeyguardSecure, that also returns true if the SIM card is unlocked
             Method isSecure = null;
             isSecure = keyguardManager.getClass().getMethod("isDeviceSecure");
             return ((Boolean) isSecure.invoke(keyguardManager)).booleanValue();
+
         } catch (Exception e) {
+
+            // Best effort if the preferred method is unavailable
             return keyguardManager.isKeyguardSecure();
         }
     }
 
     @Override
     public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext) throws JSONException {
+
         if (!SUPPORTED) {
             Log.w(TAG, MSG_NOT_SUPPORTED);
             callbackContext.error(MSG_NOT_SUPPORTED);
             return false;
         }
+
+        // Called when a SecureStorage Javascript object is created
+        // Returns an error if a lock screen that requires authentication is not defined
+        // Creates a private key for an alias based on the name of the store (if it does not exist already)
         if ("init".equals(action)) {
+            Log.v(TAG, "Called init action");
+
+            // Get key alias based on the name of the store
             String service = args.getString(0);
             String alias = service2alias(service);
 
+            // Create helper object to manage a SharedPreferences object for the alias
             SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias + "_SS", getContext());
             putStorage(service, PREFS);
 
             if (!isDeviceSecure()) {
+                // Lock screen that requires authentication is not defined
                 Log.e(TAG, MSG_DEVICE_NOT_SECURE);
                 callbackContext.error(MSG_DEVICE_NOT_SECURE);
+
             } else if (!RSA.isEntryAvailable(alias)) {
-                unlockCredentials(IntentRequestType.INIT, service, callbackContext);
+                // Key for alias does not exist
+                handleLockScreen(IntentRequestType.INIT, service, callbackContext);
+
             } else {
+                // No actions are required to init correctly
                 initSuccess(callbackContext);
             }
+
             return true;
         }
+
+        // Store a key/enc-value pair in SharedPreferences
+        // The encryption uses the key with an alias associated with the store name
         if ("set".equals(action)) {
+            Log.v(TAG, "Called set action");
             final String service = args.getString(0);
             final String key = args.getString(1);
             final String value = args.getString(2);
@@ -95,7 +122,11 @@ public class SecureStorage extends CordovaPlugin {
             });
             return true;
         }
+
+        // Get the enc-value associated with a key in SharedPreferences
+        // The decryption uses the key with an alias associated with the store name
         if ("get".equals(action)) {
+            Log.v(TAG, "Called get action");
             final String service = args.getString(0);
             final String key = args.getString(1);
             String value = getStorage(service).fetch(key);
@@ -123,7 +154,10 @@ public class SecureStorage extends CordovaPlugin {
             }
             return true;
         }
+
+        // Decrypt a message using the key with an alias associated with the store name
         if ("decrypt_rsa".equals(action)) {
+            Log.v(TAG, "Called decrypt_rsa action");
             final String service = args.getString(0);
             // getArrayBuffer does base64 decoding
             final byte[] decryptMe = args.getArrayBuffer(1);
@@ -140,7 +174,10 @@ public class SecureStorage extends CordovaPlugin {
             });
             return true;
         }
+
+        // Encrypt a message using the key with an alias associated with the store name
         if ("encrypt_rsa".equals(action)) {
+            Log.v(TAG, "Called encrypt_rsa action");
             final String service = args.getString(0);
             final String encryptMe = args.getString(1);
             cordova.getThreadPool().execute(new Runnable() {
@@ -157,19 +194,27 @@ public class SecureStorage extends CordovaPlugin {
             return true;
         }
 
+        // Check if there is a lock screen that requires authentication defined
+        // It gives the user the possibility of defining one if there isn't one
+        // Used by the Ciphered Local Storage Plugin at startup
         if ("secureDevice".equals(action)) {
-            unlockCredentials(IntentRequestType.SECURE_DEVICE, null, callbackContext);
+            Log.v(TAG, "Called secureDevice action");
+            handleLockScreen(IntentRequestType.SECURE_DEVICE, null, callbackContext);
             return true;
         }
-        //SharedPreferences interface
+
+        // The remaining actions are the SharedPreferences interface
         if ("remove".equals(action)) {
+            Log.v(TAG, "Called remove action");
             String service = args.getString(0);
             String key = args.getString(1);
             getStorage(service).remove(key);
             callbackContext.success();
             return true;
         }
+
         if ("store".equals(action)) {
+            Log.v(TAG, "Called store action");
             String service = args.getString(0);
             String key = args.getString(1);
             String value = args.getString(2);
@@ -177,7 +222,9 @@ public class SecureStorage extends CordovaPlugin {
             callbackContext.success();
             return true;
         }
+
         if ("fetch".equals(action)) {
+            Log.v(TAG, "Called fetch action");
             String service = args.getString(0);
             String key = args.getString(1);
             String value = getStorage(service).fetch(key);
@@ -188,23 +235,27 @@ public class SecureStorage extends CordovaPlugin {
             }
             return true;
         }
+
         if ("keys".equals(action)) {
+            Log.v(TAG, "Called keys action");
             String service = args.getString(0);
             callbackContext.success(new JSONArray(getStorage(service).keys()));
             return true;
         }
+
         if ("clear".equals(action)) {
+            Log.v(TAG, "Called clear action");
             String service = args.getString(0);
             getStorage(service).clear();
             callbackContext.success();
             return true;
         }
+
         return false;
     }
 
     private String service2alias(String service) {
-        String res = getContext().getPackageName() + "." + service;
-        return res;
+        return getContext().getPackageName() + "." + service;
     }
 
     private SharedPreferencesHandler getStorage(String service) {
@@ -224,61 +275,92 @@ public class SecureStorage extends CordovaPlugin {
         context.success(SUPPORTS_NATIVE_AES ? 1 : 0);
     }
 
-    private void unlockCredentials(final IntentRequestType type, final String service, final CallbackContext callbackContext) {
+    private void handleLockScreen(final IntentRequestType type, final String service, final CallbackContext callbackContext) {
         cordova.getActivity().runOnUiThread(new Runnable() {
             public void run() {
+                Log.v(TAG, "Handling lock screen");
 
-                if (Build.VERSION.SDK_INT > 28) {
-                    unlockCredentialsUsingKeyguardManager(type, service, callbackContext);
+                if (Build.VERSION.SDK_INT >= 29) { // >= Android 10
+                    handleLockScreenUsingNoOpOrSetNewPasswordIntent(type, service, callbackContext);
                 } else {
-                    unlockCredentialsUsingUnlockIntent(type, service, callbackContext);
+                    handleLockScreenUsingUnlockIntent(type, service, callbackContext);
                 }
             }
         });
     }
 
-    // Made in context of RNMT-3255 and RNMT-3540
-    private void unlockCredentialsUsingKeyguardManager(IntentRequestType type, String service, CallbackContext callbackContext) {
-        KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
-        Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
+    // Made in context of RNMT-3255, RNMT-3540 and RNMT-3803
+    @TargetApi(29)
+    private void handleLockScreenUsingNoOpOrSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Handling lock screen via no action or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
 
-        if (intent == null) {
-            intent = new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD);
+        if (isDeviceSecure()) {
+            Log.v(TAG, "Lock screen is defined, no unlock action is performed in Android 10 or newer");
+
+            // Lock screen is already defined, carry on without using an intent
+            handleCompletedRequest(type, service, callbackContext);
+
+        } else {
+            Log.v(TAG, "Lock screen is not defined, requesting one via ACTION_SET_NEW_PASSWORD intent");
+
+            // Lock screen is not defined, so we request a new one
+            Intent intent = new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD);
+            intentRequestQueue.queueRequest(type, service, intent, callbackContext);
         }
-
-        intentRequestQueue.queueRequest(type, service, intent, callbackContext);
     }
 
-    private void unlockCredentialsUsingUnlockIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+    private void handleLockScreenUsingUnlockIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Handling lock screen via UNLOCK intent (Android 9 or earlier)");
+
+        // Requests a new lock screen or requests to unlock if required
         Intent intent = new Intent("com.android.credentials.UNLOCK");
         intentRequestQueue.queueRequest(type, service, intent, callbackContext);
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        Log.v(TAG, "Activity started by intent has finished");
+
         super.onActivityResult(requestCode, resultCode, intent);
 
         IntentRequest request = intentRequestQueue.notifyActivityResultCalled();
+
+        IntentRequestType type = request.getType();
+        String service = request.getService();
         CallbackContext callbackContext = request.getCallbackContext();
 
-        switch (request.getType()) {
+        handleCompletedRequest(type, service, callbackContext);
+    }
+
+    private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Request has completed (maybe from an intent)");
+
+        switch (type) {
+
             case INIT:
-                completeInit(request.getService(), callbackContext);
+                handleCompletedInit(service, callbackContext);
                 break;
 
             case SECURE_DEVICE:
-                completeSecureDevice(callbackContext);
+                handleCompletedSecureDevice(callbackContext);
+                break;
+
+            default:
+                Log.w(TAG, "Request completion was not handled");
                 break;
         }
     }
 
-    private void completeInit(final String service, final CallbackContext callbackContext) {
+    private void handleCompletedInit(final String service, final CallbackContext callbackContext) {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
                 try {
+
                     // RSA already has mutual exclusion in all its public methods individually
                     // But this block requires mutual exclusion as a whole
                     synchronized (SecureStorage.this) {
+                        Log.v(TAG, "Completed request is of init action");
+
                         String alias = service2alias(service);
                         if (!RSA.isEntryAvailable(alias)) {
                             //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
@@ -286,19 +368,27 @@ public class SecureStorage extends CordovaPlugin {
                             RSA.createKeyPair(getContext(), alias);
                         }
                     }
+
+                    Log.v(TAG, "init returned success");
                     initSuccess(callbackContext);
+
                 } catch (Exception e) {
-                    Log.e(TAG, "Init failed :", e);
+                    Log.e(TAG, "Init returned error because: ", e);
                     callbackContext.error(e.getMessage());
                 }
             }
         });
     }
 
-    private void completeSecureDevice(CallbackContext callbackContext) {
+    private void handleCompletedSecureDevice(CallbackContext callbackContext) {
+        Log.v(TAG, "Completed request is of secureDevice action");
+
         if (isDeviceSecure()) {
+            Log.v(TAG, "secureDevice returned success");
             callbackContext.success();
+
         } else {
+            Log.v(TAG, "secureDevice returned error");
             callbackContext.error(MSG_DEVICE_NOT_SECURE);
         }
     }
