@@ -285,7 +285,7 @@ public class SecureStorage extends CordovaPlugin {
 
         String result = encrytionHelper(service, key, value);
 
-        if(result.equals("success")){
+        if(!result.contains("ERROR")){
             callbackContext.success();
         }
         else{
@@ -306,9 +306,9 @@ public class SecureStorage extends CordovaPlugin {
             result = exec.get();
             getStorage(service).store(key, result);
         } catch (InterruptedException e) {
-            result = e.getMessage();
+            result = "ERROR: " + e.getMessage();
         } catch (ExecutionException e) {
-            result = e.getMessage();
+            result = "ERROR: " + e.getMessage();
         }
         return result;
 
