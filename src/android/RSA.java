@@ -2,15 +2,27 @@ package com.crypho.plugins;
 
 import android.content.Context;
 
+import android.os.Build;
 import android.security.KeyPairGeneratorSpec;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Log;
 
 import java.math.BigInteger;
 import java.security.Key;
+import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.spec.MGF1ParameterSpec;
 import java.util.Calendar;
+import java.util.Enumeration;
 
 import javax.crypto.Cipher;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import javax.security.auth.x500.X500Principal;
 
 public class RSA {
@@ -28,6 +40,7 @@ public class RSA {
 
 	public static byte[] decrypt(byte[] encrypted, String alias) throws Exception {
 		synchronized (LOCK) {
+
 			initCipher(Cipher.DECRYPT_MODE, alias);
 			return CIPHER.doFinal(encrypted);
 		}
@@ -39,19 +52,44 @@ public class RSA {
 			Calendar notAfter = Calendar.getInstance();
 			notAfter.add(Calendar.YEAR, 100);
 			String principalString = String.format("CN=%s, OU=%s", alias, ctx.getPackageName());
-			KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(ctx)
-					.setAlias(alias)
-					.setSubject(new X500Principal(principalString))
-					.setSerialNumber(BigInteger.ONE)
-					.setStartDate(notBefore.getTime())
-					.setEndDate(notAfter.getTime())
-					.setEncryptionRequired()
-					.setKeySize(2048)
-					.setKeyType("RSA")
-					.build();
-			KeyPairGenerator kpGenerator = KeyPairGenerator.getInstance("RSA", KEYSTORE_PROVIDER);
-			kpGenerator.initialize(spec);
-			kpGenerator.generateKeyPair();
+
+			if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+				KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, KEYSTORE_PROVIDER);
+				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
+						.setCertificateSubject(new X500Principal(principalString))
+						.setCertificateSerialNumber(BigInteger.ONE)
+						.setKeySize(2048)
+						.setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+						.setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+						.setRandomizedEncryptionRequired(true)
+						.setKeyValidityStart(notBefore.getTime())
+						.setKeyValidityEnd(notAfter.getTime());
+				if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
+					builder.setInvalidatedByBiometricEnrollment(false);
+				}
+				KeyGenParameterSpec spec = builder.build();
+				generator.initialize(spec);
+				generator.generateKeyPair();
+			}
+			//pre Android 6 key gen
+			else{
+
+				KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(ctx)
+						.setAlias(alias)
+						.setSubject(new X500Principal(principalString))
+						.setSerialNumber(BigInteger.ONE)
+						.setStartDate(notBefore.getTime())
+						.setEndDate(notAfter.getTime())
+						.setEncryptionRequired()
+						.setKeySize(2048)
+						.setKeyType("RSA")
+						.build();
+				KeyPairGenerator kpGenerator = KeyPairGenerator.getInstance("RSA", KEYSTORE_PROVIDER);
+				kpGenerator.initialize(spec);
+				kpGenerator.generateKeyPair();
+			}
+
+
 		}
 	}
 
@@ -72,7 +110,10 @@ public class RSA {
 				default:
 					throw new Exception("Invalid cipher mode parameter");
 			}
+
+
 			CIPHER.init(cipherMode, key);
+
 		}
 	}
 
@@ -98,6 +139,16 @@ public class RSA {
 			return Cipher.getInstance("RSA/ECB/PKCS1Padding");
 		} catch (Exception e) {
 			return null;
+		}
+	}
+
+	public static void keyReset(String alias) {
+
+		try {
+			KeyStore keystore = KeyStore.getInstance(KEYSTORE_PROVIDER);
+			keystore.deleteEntry(alias);
+		} catch (KeyStoreException ex) {
+			ex.printStackTrace();
 		}
 	}
 }
