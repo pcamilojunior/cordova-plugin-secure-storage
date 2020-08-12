@@ -49,6 +49,7 @@ public class RSA {
 	public static void createKeyPair(Context ctx, String alias) throws Exception {
 		synchronized (LOCK) {
 			Calendar notBefore = Calendar.getInstance();
+			notBefore.add(Calendar.HOUR_OF_DAY, -26);
 			Calendar notAfter = Calendar.getInstance();
 			notAfter.add(Calendar.YEAR, 100);
 			String principalString = String.format("CN=%s, OU=%s", alias, ctx.getPackageName());
