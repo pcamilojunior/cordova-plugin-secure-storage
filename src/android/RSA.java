@@ -1,28 +1,23 @@
 package com.crypho.plugins;
 
 import android.content.Context;
-
 import android.os.Build;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
 import android.util.Log;
 
 import java.math.BigInteger;
 import java.security.Key;
-import java.security.KeyPair;
+import java.security.KeyFactory;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.spec.MGF1ParameterSpec;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Calendar;
-import java.util.Enumeration;
 
 import javax.crypto.Cipher;
-import javax.crypto.spec.OAEPParameterSpec;
-import javax.crypto.spec.PSource;
 import javax.security.auth.x500.X500Principal;
 
 public class RSA {
@@ -57,6 +52,8 @@ public class RSA {
 			if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
 				KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, KEYSTORE_PROVIDER);
 				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
+						.setUserAuthenticationRequired(true)
+						.setUserAuthenticationValidityDurationSeconds(60*60*24*31)
 						.setCertificateSubject(new X500Principal(principalString))
 						.setCertificateSerialNumber(BigInteger.ONE)
 						.setKeySize(2048)
@@ -112,7 +109,22 @@ public class RSA {
 					throw new Exception("Invalid cipher mode parameter");
 			}
 
+			KeyFactory factory = KeyFactory.getInstance(keyEntry.getPrivateKey().getAlgorithm(), KEYSTORE_PROVIDER);
+			KeyInfo keyInfo;
+			try{
+				keyInfo = factory.getKeySpec(keyEntry.getPrivateKey(),KeyInfo.class);
+				if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
 
+					if(keyInfo.isInsideSecureHardware()) {
+						Log.e("RSA", "Key is secure");
+					}
+					else{
+						Log.e("RSA", "Key is  not secure");
+					}
+				}
+			} catch (InvalidKeySpecException e) {
+				e.printStackTrace();
+			}
 			CIPHER.init(cipherMode, key);
 
 		}

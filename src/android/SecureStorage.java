@@ -1,32 +1,41 @@
 package com.crypho.plugins;
 
-import android.annotation.TargetApi;
-import android.app.KeyguardManager;
-import android.app.admin.DevicePolicyManager;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.os.Build;
-import android.util.Base64;
-import android.util.Log;
-
-import org.apache.cordova.CallbackContext;
-import org.apache.cordova.CordovaArgs;
-import org.apache.cordova.CordovaPlugin;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.File;
 import java.lang.reflect.Method;
 import java.security.SecureRandom;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import android.annotation.TargetApi;
+import android.app.admin.DevicePolicyManager;
+import android.content.SharedPreferences;
+import android.content.res.Resources;
+import android.preference.PreferenceManager;
+import android.security.keystore.UserNotAuthenticatedException;
+import android.telecom.Call;
+import android.util.Log;
+import android.util.Base64;
+import android.os.Build;
+import android.app.KeyguardManager;
+import android.content.Context;
+import android.content.Intent;
+import android.util.Pair;
+
+import org.apache.cordova.CallbackContext;
+import org.apache.cordova.CordovaArgs;
+import org.apache.cordova.CordovaPlugin;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONArray;
+
+import javax.crypto.IllegalBlockSizeException;
 
 public class SecureStorage extends CordovaPlugin {
     private final ExecutorService threadPool = Executors.newCachedThreadPool();
@@ -50,20 +59,11 @@ public class SecureStorage extends CordovaPlugin {
 
         intentRequestQueue = new IntentRequestQueue(this);
 
-
-        if(checkForSecurityMigration()){
-
-            try {
-                securityMigration();
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
 
     private void securityMigration() throws JSONException {
-        Log.e("SSPlugin", "Migration Started");
+        Log.e(TAG, "Migration Started");
         //transfer all existing items to new table
         Hashtable<Integer, TransitionValue> transitionTable = new Hashtable<Integer, TransitionValue>();
         Hashtable<String,Boolean> RSAMap= new Hashtable<String, Boolean>();
@@ -105,12 +105,12 @@ public class SecureStorage extends CordovaPlugin {
             //the encryptor helper already inserts items into storage
             encrytionHelper(tv.Service(),tv.Key(), tv.Value());
 
-            Log.d("SSPlugin", "Migration success");
         }
         Context ctx = getContext();
         SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
         markAsMigrated(preferences);
 
+        Log.d(TAG, "Migration success");
     }
 
     private boolean isDeviceSecure() {
@@ -196,6 +196,14 @@ public class SecureStorage extends CordovaPlugin {
         SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias + "_SS", getContext());
         putStorage(service, PREFS);
 
+        if(checkForSecurityMigration()){
+
+            try {
+                securityMigration();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
 
 
         if (!isDeviceSecure()) {
@@ -211,7 +219,6 @@ public class SecureStorage extends CordovaPlugin {
             // No actions are required to init correctly
             initSuccess(callbackContext);
         }
-
         return true;
     }
 
@@ -222,23 +229,23 @@ public class SecureStorage extends CordovaPlugin {
         //check OS then check if keys exist and migration was done
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
 
-            initializePreferences();
-            Log.e("BIGMIGRATION", "TARGET OS");
+            int size = initializePreferences();
+            Log.e(TAG, "TARGET OS");
             if(isMigrated.equals("TRUE")){
 
-                Log.e("BIGMIGRATION", "MIGRATION ALREADY DONE");
+                Log.e(TAG, "MIGRATION ALREADY DONE");
                 return false;
             }
             //the target case of migration
-            else if(SERVICE_STORAGE.size() > 0){
+            else if(size > 0){
 
-                Log.e("BIGMIGRATION", "TARGET CASE FOR MIGRATION");
+                Log.e(TAG, "TARGET CASE FOR MIGRATION");
                 return true;
             }
             //new use, meaning we should put the tag in as to not trigger a unwanted migration
             else{
 
-                Log.e("BIGMIGRATION", "NEW USE");
+                Log.e(TAG, "NEW USE");
                 markAsMigrated(preferences);
                 return false;
             }
@@ -256,23 +263,24 @@ public class SecureStorage extends CordovaPlugin {
         editor.commit();
     }
 
-    private void initializePreferences() {
+    private int initializePreferences() {
 
         Context ctx = getContext();
         File prefdir = new File(ctx.getApplicationInfo().dataDir,"shared_prefs");
         String[] filenames = prefdir.list();
-
+        int i = 0;
         for(String name : filenames){
             if(name.contains("SS")){
-                Log.e("BIGMIGRATION","FILENAMES: " + name);
 
                 String alias = name.substring(0, name.length() - 4);
                 String service = alias.substring(ctx.getPackageName().length() + 1, alias.length() -3);
 
                 SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias, getContext());
                 putStorage(service, PREFS);
+                i+=1;
             }
         }
+        return i;
     }
 
     // Store a key/enc-value pair in SharedPreferences
@@ -306,9 +314,9 @@ public class SecureStorage extends CordovaPlugin {
             result = exec.get();
             getStorage(service).store(key, result);
         } catch (InterruptedException e) {
-            result = "ERROR: " + e.getMessage();
+            result = "ERROR: "  + e.getMessage();
         } catch (ExecutionException e) {
-            result = "ERROR: " + e.getMessage();
+            result = "ERROR: "  + e.getMessage();
         }
         return result;
 
@@ -323,9 +331,10 @@ public class SecureStorage extends CordovaPlugin {
         String value = getStorage(service).fetch(key);
         if (value != null) {
             String result = decryptHelper(value, service);
+
             if (!result.contains("ERROR")) {
                 callbackContext.success(result);
-            } else {
+            }else {
                 result = result.replace("ERROR: ", "");
                 callbackContext.error(result);
             }
@@ -345,23 +354,30 @@ public class SecureStorage extends CordovaPlugin {
         final byte[] adata = Base64.decode(data.getString("adata"), Base64.DEFAULT);
 
 
+
         DecryptionExecutor decryptionExecutor = new DecryptionExecutor(encKey, service2alias(service), iv, ct, adata);
         Future<String> decryptThread = cordova.getThreadPool().submit(decryptionExecutor);
 
         //thread blocks here until result
-        String decrypted = "";
+        String decrypted = WaitForResult(decryptThread);
+
+
+        return decrypted;
+
+    }
+
+    private String WaitForResult(Future<String> decryptThread) {
+        String decrypted;
         try {
-            decrypted += decryptThread.get();
+            decrypted = decryptThread.get();
         } catch (InterruptedException e) {
             decrypted = "ERROR: ";
             decrypted += e.getMessage();
         } catch (ExecutionException e) {
             decrypted = "ERROR: ";
-            decrypted = e.getMessage();
+            decrypted += e.getMessage();
         }
-
         return decrypted;
-
     }
 
     // Decrypt a message using the key with an alias associated with the store name
@@ -502,9 +518,10 @@ public class SecureStorage extends CordovaPlugin {
 
         if (isDeviceSecure()) {
             Log.v(TAG, "Lock screen is defined, no unlock action is performed in Android 10 or newer");
-
+            KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
+            Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
             // Lock screen is already defined, carry on without using an intent
-            handleCompletedRequest(type, service, callbackContext);
+            intentRequestQueue.queueRequest(type, service, intent, callbackContext);
 
         } else {
             Log.v(TAG, "Lock screen is not defined, requesting one via ACTION_SET_NEW_PASSWORD intent");
@@ -535,10 +552,10 @@ public class SecureStorage extends CordovaPlugin {
         String service = request.getService();
         CallbackContext callbackContext = request.getCallbackContext();
 
-        handleCompletedRequest(type, service, callbackContext);
+        handleCompletedRequest(type, service, callbackContext, intent);
     }
 
-    private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext) {
+    private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext, Intent intent) {
         Log.v(TAG, "Request has completed (maybe from an intent)");
 
         switch (type) {
@@ -556,6 +573,8 @@ public class SecureStorage extends CordovaPlugin {
                 break;
         }
     }
+
+
 
     private void handleCompletedInit(final String service, final CallbackContext callbackContext) {
         cordova.getThreadPool().execute(new Runnable() {
@@ -599,9 +618,10 @@ public class SecureStorage extends CordovaPlugin {
         }
     }
 
+
     private Context getContext() {
         return cordova.getActivity().getApplicationContext();
     }
 
-
+    
 }
