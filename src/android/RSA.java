@@ -109,22 +109,7 @@ public class RSA {
 					throw new Exception("Invalid cipher mode parameter");
 			}
 
-			KeyFactory factory = KeyFactory.getInstance(keyEntry.getPrivateKey().getAlgorithm(), KEYSTORE_PROVIDER);
-			KeyInfo keyInfo;
-			try{
-				keyInfo = factory.getKeySpec(keyEntry.getPrivateKey(),KeyInfo.class);
-				if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
-
-					if(keyInfo.isInsideSecureHardware()) {
-						Log.e("RSA", "Key is secure");
-					}
-					else{
-						Log.e("RSA", "Key is  not secure");
-					}
-				}
-			} catch (InvalidKeySpecException e) {
-				e.printStackTrace();
-			}
+			
 			CIPHER.init(cipherMode, key);
 
 		}
