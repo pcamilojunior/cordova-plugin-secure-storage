@@ -46,7 +46,7 @@ public class SecureStorage extends CordovaPlugin {
 
     private static final String MSG_NOT_SUPPORTED = "API 19 (Android 4.4 KitKat) is required. This device is running API " + Build.VERSION.SDK_INT;
     private static final String MSG_DEVICE_NOT_SECURE = "Device is not secure";
-    public static final String MIGRATED_FOR_SECURITY = "RMET-196";
+    public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
 
     private final Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
 
@@ -62,7 +62,7 @@ public class SecureStorage extends CordovaPlugin {
     }
 
 
-    private void securityMigration() throws JSONException {
+    private void securityMigration(CallbackContext callbackContext) throws JSONException {
         Log.e(TAG, "Migration Started");
         //transfer all existing items to new table
         Hashtable<Integer, TransitionValue> transitionTable = new Hashtable<Integer, TransitionValue>();
@@ -77,11 +77,13 @@ public class SecureStorage extends CordovaPlugin {
 
             for(String key : keys){
                 String value = handler.fetch(key);
-                String decrypted = decryptHelper(value, service);
+                ExecutorResult result = decryptHelper(value, service,callbackContext);
 
-                TransitionValue t = new TransitionValue(service, key, decrypted);
-                SecureRandom i = new SecureRandom();
-                transitionTable.put(i.nextInt(), t);
+                if(result.type != ExecutorResultType.ERROR){
+                    TransitionValue t = new TransitionValue(service, key, result.result);
+                    SecureRandom i = new SecureRandom();
+                    transitionTable.put(i.nextInt(), t);
+                }
             }
         }
 
@@ -92,18 +94,18 @@ public class SecureStorage extends CordovaPlugin {
             TransitionValue tv = transitionTable.get(key);
 
             //RSA key needs to be created for each service
-            if(!RSAMap.get(tv.Service())){
+            if(!RSAMap.get(tv.getService())){
                 try{
-                    RSA.createKeyPair(getContext(),service2alias(tv.Service()));
+                    RSA.createKeyPair(getContext(),service2alias(tv.getService()));
 
-                    RSAMap.put(tv.Service(), true);
+                    RSAMap.put(tv.getService(), true);
 
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
             //the encryptor helper already inserts items into storage
-            encrytionHelper(tv.Service(),tv.Key(), tv.Value());
+            encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
 
         }
         Context ctx = getContext();
@@ -199,7 +201,7 @@ public class SecureStorage extends CordovaPlugin {
         if(checkForSecurityMigration()){
 
             try {
-                securityMigration();
+                securityMigration(callbackContext);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -271,6 +273,7 @@ public class SecureStorage extends CordovaPlugin {
         int i = 0;
         for(String name : filenames){
             if(name.contains("SS")){
+                Log.e("BIGMIGRATION","FILENAMES: " + name);
 
                 String alias = name.substring(0, name.length() - 4);
                 String service = alias.substring(ctx.getPackageName().length() + 1, alias.length() -3);
@@ -291,33 +294,34 @@ public class SecureStorage extends CordovaPlugin {
         final String key = args.getString(1);
         final String value = args.getString(2);
 
-        String result = encrytionHelper(service, key, value);
+        ExecutorResult result = encrytionHelper(service, key, value);
 
-        if(!result.contains("ERROR")){
+        if(result.type != ExecutorResultType.ERROR){
             callbackContext.success();
         }
         else{
-            result = result.replace("ERROR:", "");
-            callbackContext.error(result);
+            callbackContext.error(result.result);
         }
         return true;
 
     }
 
-    private String encrytionHelper(String service, String key, String value) {
+    private ExecutorResult encrytionHelper(String service, String key, String value) {
 
-        String result = "";
+        ExecutorResult result;
 
         EncryptionExecutor encryptionExecutor = new EncryptionExecutor(service, key, value, cordova.getContext());
-        Future<String> exec = cordova.getThreadPool().submit(encryptionExecutor);
+        Future<ExecutorResult> exec = cordova.getThreadPool().submit(encryptionExecutor);
 
         try{
             result = exec.get();
-            getStorage(service).store(key, result);
+            if(result.type == ExecutorResultType.SUCCESS){
+                getStorage(service).store(key, result.result);
+            }
         } catch (InterruptedException e) {
-            result = "ERROR:"  + e.getMessage();
+            result = new ExecutorResult(ExecutorResultType.ERROR,e.getMessage());
         } catch (ExecutionException e) {
-            result = "ERROR:"  + e.getMessage();
+            result = new ExecutorResult(ExecutorResultType.ERROR,e.getMessage());
         }
         return result;
 
@@ -331,13 +335,12 @@ public class SecureStorage extends CordovaPlugin {
         final String key = args.getString(1);
         String value = getStorage(service).fetch(key);
         if (value != null) {
-            String result = decryptHelper(value, service);
+            ExecutorResult result = decryptHelper(value, service, callbackContext);
 
-            if (!result.contains("ERROR")) {
-                callbackContext.success(result);
+            if (result.type != ExecutorResultType.ERROR) {
+                callbackContext.success(result.result);
             }else {
-                result = result.replace("ERROR:", "");
-                callbackContext.error(result);
+                callbackContext.error(result.result);
             }
         } else {
             callbackContext.error("Key [" + key + "] not found.");
@@ -346,7 +349,7 @@ public class SecureStorage extends CordovaPlugin {
     }
 
 
-    private String decryptHelper(String value, String service) throws JSONException {
+    private ExecutorResult decryptHelper(String value, String service, CallbackContext callbackContext) throws JSONException {
         JSONObject json = new JSONObject(value);
         final byte[] encKey = Base64.decode(json.getString("key"), Base64.DEFAULT);
         JSONObject data = json.getJSONObject("value");
@@ -357,28 +360,20 @@ public class SecureStorage extends CordovaPlugin {
 
 
         DecryptionExecutor decryptionExecutor = new DecryptionExecutor(encKey, service2alias(service), iv, ct, adata);
-        Future<String> decryptThread = cordova.getThreadPool().submit(decryptionExecutor);
+        Future<ExecutorResult> decryptThread = cordova.getThreadPool().submit(decryptionExecutor);
 
         //thread blocks here until result
-        String decrypted = WaitForResult(decryptThread);
-
-
-        return decrypted;
-
-    }
-
-    private String WaitForResult(Future<String> decryptThread) {
-        String decrypted;
+        ExecutorResult decrypted;
         try {
             decrypted = decryptThread.get();
         } catch (InterruptedException e) {
-            decrypted = "ERROR:";
-            decrypted += e.getMessage();
+            decrypted = new ExecutorResult(ExecutorResultType.ERROR, e.getMessage());
         } catch (ExecutionException e) {
-            decrypted = "ERROR:";
-            decrypted += e.getMessage();
+            decrypted = new ExecutorResult(ExecutorResultType.ERROR, e.getMessage());
         }
+
         return decrypted;
+
     }
 
     // Decrypt a message using the key with an alias associated with the store name
@@ -553,10 +548,10 @@ public class SecureStorage extends CordovaPlugin {
         String service = request.getService();
         CallbackContext callbackContext = request.getCallbackContext();
 
-        handleCompletedRequest(type, service, callbackContext, intent);
+        handleCompletedRequest(type, service, callbackContext);
     }
 
-    private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext, Intent intent) {
+    private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext) {
         Log.v(TAG, "Request has completed (maybe from an intent)");
 
         switch (type) {
@@ -624,5 +619,5 @@ public class SecureStorage extends CordovaPlugin {
         return cordova.getActivity().getApplicationContext();
     }
 
-    
+   
 }

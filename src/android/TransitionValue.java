@@ -1,6 +1,6 @@
 package com.crypho.plugins;
 
-public class TransitionValue{
+public  class TransitionValue{
     private String service, key, value;
 
     public  TransitionValue(String service, String key, String value){
@@ -9,15 +9,15 @@ public class TransitionValue{
         this.value = value;
     }
 
-    public String Key() {
+    public String getKey() {
         return key;
     }
 
-    public String Service() {
+    public String getService() {
         return service;
     }
 
-    public String Value() {
+    public String getValue() {
         return value;
     }
 }
