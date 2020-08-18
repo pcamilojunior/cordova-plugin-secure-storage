@@ -46,7 +46,7 @@ public class SecureStorage extends CordovaPlugin {
 
     private static final String MSG_NOT_SUPPORTED = "API 19 (Android 4.4 KitKat) is required. This device is running API " + Build.VERSION.SDK_INT;
     private static final String MSG_DEVICE_NOT_SECURE = "Device is not secure";
-    public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
+    public static final String MIGRATED_FOR_SECURITY = "RMET-196";
 
     private final Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
 
