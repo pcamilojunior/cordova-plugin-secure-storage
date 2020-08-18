@@ -297,6 +297,7 @@ public class SecureStorage extends CordovaPlugin {
             callbackContext.success();
         }
         else{
+            result = result.replace("ERROR:", "");
             callbackContext.error(result);
         }
         return true;
@@ -314,9 +315,9 @@ public class SecureStorage extends CordovaPlugin {
             result = exec.get();
             getStorage(service).store(key, result);
         } catch (InterruptedException e) {
-            result = "ERROR: "  + e.getMessage();
+            result = "ERROR:"  + e.getMessage();
         } catch (ExecutionException e) {
-            result = "ERROR: "  + e.getMessage();
+            result = "ERROR:"  + e.getMessage();
         }
         return result;
 
@@ -335,7 +336,7 @@ public class SecureStorage extends CordovaPlugin {
             if (!result.contains("ERROR")) {
                 callbackContext.success(result);
             }else {
-                result = result.replace("ERROR: ", "");
+                result = result.replace("ERROR:", "");
                 callbackContext.error(result);
             }
         } else {
@@ -371,10 +372,10 @@ public class SecureStorage extends CordovaPlugin {
         try {
             decrypted = decryptThread.get();
         } catch (InterruptedException e) {
-            decrypted = "ERROR: ";
+            decrypted = "ERROR:";
             decrypted += e.getMessage();
         } catch (ExecutionException e) {
-            decrypted = "ERROR: ";
+            decrypted = "ERROR:";
             decrypted += e.getMessage();
         }
         return decrypted;

@@ -26,7 +26,7 @@ public class DecryptionExecutor implements Callable<String> {
             return decrypted;
         } catch (Exception e) {
             Log.e(TAG, "Decrypt (RSA/AES) failed :", e);
-            return e.getMessage();
+            return "ERROR: " + e.getMessage();
         }
     }
 }
