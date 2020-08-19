@@ -44,6 +44,8 @@ public class RSA {
 	public static void createKeyPair(Context ctx, String alias) throws Exception {
 		synchronized (LOCK) {
 			Calendar notBefore = Calendar.getInstance();
+
+			//this back dates the date of the key in order to avoid some timezone issues found during use with some devices
 			notBefore.add(Calendar.HOUR_OF_DAY, -26);
 			Calendar notAfter = Calendar.getInstance();
 			notAfter.add(Calendar.YEAR, 100);
@@ -53,6 +55,7 @@ public class RSA {
 				KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, KEYSTORE_PROVIDER);
 				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
 						.setUserAuthenticationRequired(true)
+						//the value used for the validity is 31 days a big number to ensure the keys are always usable after a authentication done by the user
 						.setUserAuthenticationValidityDurationSeconds(60*60*24*31)
 						.setCertificateSubject(new X500Principal(principalString))
 						.setCertificateSerialNumber(BigInteger.ONE)
@@ -140,13 +143,4 @@ public class RSA {
 		}
 	}
 
-	public static void keyReset(String alias) {
-
-		try {
-			KeyStore keystore = KeyStore.getInstance(KEYSTORE_PROVIDER);
-			keystore.deleteEntry(alias);
-		} catch (KeyStoreException ex) {
-			ex.printStackTrace();
-		}
-	}
 }
