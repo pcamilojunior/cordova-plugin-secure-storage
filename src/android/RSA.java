@@ -49,7 +49,7 @@ public class RSA {
 			notAfter.add(Calendar.YEAR, 100);
 			String principalString = String.format("CN=%s, OU=%s", alias, ctx.getPackageName());
 
-			if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+			if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
 				KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, KEYSTORE_PROVIDER);
 				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
 						.setUserAuthenticationRequired(true)

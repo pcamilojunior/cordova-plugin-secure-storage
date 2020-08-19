@@ -229,7 +229,7 @@ public class SecureStorage extends CordovaPlugin {
         SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM",0);
         String isMigrated = preferences.getString(MIGRATED_FOR_SECURITY, "");
         //check OS then check if keys exist and migration was done
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
 
             int size = initializePreferences();
             Log.e(TAG, "TARGET OS");
