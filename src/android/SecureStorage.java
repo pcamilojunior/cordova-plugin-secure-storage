@@ -512,7 +512,7 @@ public class SecureStorage extends CordovaPlugin {
         Log.v(TAG, "Handling lock screen via no action or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
 
         if (isDeviceSecure()) {
-            Log.v(TAG, "Lock screen is defined, no unlock action is performed in Android 10 or newer");
+            Log.v(TAG, "Unlocking Android devices above 10 using Keyguard manager");
             KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
             Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
             // Lock screen is already defined, carry on without using an intent
