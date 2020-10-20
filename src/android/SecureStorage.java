@@ -68,6 +68,7 @@ public class SecureStorage extends CordovaPlugin {
         Hashtable<Integer, TransitionValue> transitionTable = new Hashtable<Integer, TransitionValue>();
         Hashtable<String,Boolean> RSAMap= new Hashtable<String, Boolean>();
         Enumeration<String> services = SERVICE_STORAGE.keys();
+        boolean error = false;
         while(services.hasMoreElements()){
             String service = services.nextElement();
             //initializing rsakeymapper
@@ -83,6 +84,9 @@ public class SecureStorage extends CordovaPlugin {
                     TransitionValue t = new TransitionValue(service, key, result.result);
                     SecureRandom i = new SecureRandom();
                     transitionTable.put(i.nextInt(), t);
+                }
+                else{
+                    error = true;
                 }
             }
         }
@@ -105,12 +109,16 @@ public class SecureStorage extends CordovaPlugin {
                 }
             }
             //the encryptor helper already inserts items into storage
-            encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
-
+            ExecutorResult result = encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
+            if(result.type == ExecutorResultType.ERROR){
+                error = true;
+            }
         }
-        Context ctx = getContext();
-        SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
-        markAsMigrated(preferences);
+        if(!error){
+            Context ctx = getContext();
+            SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
+            markAsMigrated(preferences);
+        }
 
         Log.d(TAG, "Migration success");
     }
@@ -232,22 +240,15 @@ public class SecureStorage extends CordovaPlugin {
         if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
 
             int size = initializePreferences();
-            Log.e(TAG, "TARGET OS");
             if(isMigrated.equals("TRUE")){
-
-                Log.e(TAG, "MIGRATION ALREADY DONE");
                 return false;
             }
             //the target case of migration
             else if(size > 0){
-
-                Log.e(TAG, "TARGET CASE FOR MIGRATION");
                 return true;
             }
             //new use, meaning we should put the tag in as to not trigger a unwanted migration
             else{
-
-                Log.e(TAG, "NEW USE");
                 markAsMigrated(preferences);
                 return false;
             }
@@ -273,8 +274,6 @@ public class SecureStorage extends CordovaPlugin {
         int i = 0;
         for(String name : filenames){
             if(name.contains("SS")){
-                Log.e("BIGMIGRATION","FILENAMES: " + name);
-
                 String alias = name.substring(0, name.length() - 4);
                 String service = alias.substring(ctx.getPackageName().length() + 1, alias.length() -3);
 
