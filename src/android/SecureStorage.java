@@ -93,34 +93,36 @@ public class SecureStorage extends CordovaPlugin {
 
         //Reinsert data with new keys
         Enumeration<Integer> transitionKeys = transitionTable.keys();
-        while(transitionKeys.hasMoreElements()){
-            Integer key = transitionKeys.nextElement();
-            TransitionValue tv = transitionTable.get(key);
+        if(!error){
+            while(transitionKeys.hasMoreElements()){
+                Integer key = transitionKeys.nextElement();
+                TransitionValue tv = transitionTable.get(key);
 
-            //RSA key needs to be created for each service
-            if(!RSAMap.get(tv.getService())){
-                try{
-                    RSA.createKeyPair(getContext(),service2alias(tv.getService()));
+                //RSA key needs to be created for each service
+                if(!RSAMap.get(tv.getService())){
+                    try{
+                        RSA.createKeyPair(getContext(),service2alias(tv.getService()));
 
-                    RSAMap.put(tv.getService(), true);
+                        RSAMap.put(tv.getService(), true);
 
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
-            //the encryptor helper already inserts items into storage
-            ExecutorResult result = encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
-            if(result.type == ExecutorResultType.ERROR){
-                error = true;
+                //the encryptor helper already inserts items into storage
+                ExecutorResult result = encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
+                if(result.type == ExecutorResultType.ERROR){
+                    error = true;
+                }
             }
         }
         if(!error){
             Context ctx = getContext();
             SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
             markAsMigrated(preferences);
+            Log.d(TAG, "Migration success");
         }
 
-        Log.d(TAG, "Migration success");
     }
 
     private boolean isDeviceSecure() {
