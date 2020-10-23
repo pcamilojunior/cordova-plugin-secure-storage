@@ -63,7 +63,6 @@ public class SecureStorage extends CordovaPlugin {
 
 
     private void securityMigration(CallbackContext callbackContext) throws JSONException {
-        Log.e(TAG, "Migration Started");
         //transfer all existing items to new table
         Hashtable<Integer, TransitionValue> transitionTable = new Hashtable<Integer, TransitionValue>();
         Hashtable<String,Boolean> RSAMap= new Hashtable<String, Boolean>();
@@ -87,6 +86,7 @@ public class SecureStorage extends CordovaPlugin {
                 }
                 else{
                     error = true;
+                    break;
                 }
             }
         }
@@ -120,7 +120,6 @@ public class SecureStorage extends CordovaPlugin {
             Context ctx = getContext();
             SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
             markAsMigrated(preferences);
-            Log.d(TAG, "Migration success");
         }
 
     }
@@ -152,7 +151,7 @@ public class SecureStorage extends CordovaPlugin {
             return false;
         }
 
-        Log.e("ACTION: ", action);
+        Log.v("ACTION: ", action);
 
         boolean result = false;
         switch (action) {
