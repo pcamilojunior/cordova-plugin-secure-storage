@@ -67,7 +67,6 @@ public class SecureStorage extends CordovaPlugin {
         Hashtable<Integer, TransitionValue> transitionTable = new Hashtable<Integer, TransitionValue>();
         Hashtable<String,Boolean> RSAMap= new Hashtable<String, Boolean>();
         Enumeration<String> services = SERVICE_STORAGE.keys();
-        boolean error = false;
         while(services.hasMoreElements()){
             String service = services.nextElement();
             //initializing rsakeymapper
@@ -85,42 +84,43 @@ public class SecureStorage extends CordovaPlugin {
                     transitionTable.put(i.nextInt(), t);
                 }
                 else{
-                    error = true;
-                    break;
+                    callbackContext.error("MIGRATION FAILED : " + result.result);
+                    return;
                 }
             }
         }
 
         //Reinsert data with new keys
         Enumeration<Integer> transitionKeys = transitionTable.keys();
-        if(!error){
-            while(transitionKeys.hasMoreElements()){
-                Integer key = transitionKeys.nextElement();
-                TransitionValue tv = transitionTable.get(key);
+        
+        while(transitionKeys.hasMoreElements()){
+            Integer key = transitionKeys.nextElement();
+            TransitionValue tv = transitionTable.get(key);
 
-                //RSA key needs to be created for each service
-                if(!RSAMap.get(tv.getService())){
-                    try{
-                        RSA.createKeyPair(getContext(),service2alias(tv.getService()));
+            //RSA key needs to be created for each service
+            if(!RSAMap.get(tv.getService())){
+                try{
+                    RSA.createKeyPair(getContext(),service2alias(tv.getService()));
 
-                        RSAMap.put(tv.getService(), true);
+                    RSAMap.put(tv.getService(), true);
 
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                //the encryptor helper already inserts items into storage
-                ExecutorResult result = encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
-                if(result.type == ExecutorResultType.ERROR){
-                    error = true;
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
+            //the encryptor helper already inserts items into storage
+            ExecutorResult result = encrytionHelper(tv.getService(),tv.getKey(), tv.getValue());
+            if(result.type == ExecutorResultType.ERROR){
+                callbackContext.error("MIGRATION FAILED : " + result.result);
+                return;
+            }
         }
-        if(!error){
-            Context ctx = getContext();
-            SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
-            markAsMigrated(preferences);
-        }
+        
+
+        Context ctx = getContext();
+        SharedPreferences preferences = ctx.getSharedPreferences(ctx.getPackageName() + "_SM", 0);
+        markAsMigrated(preferences);
+        
 
     }
 
@@ -510,13 +510,13 @@ public class SecureStorage extends CordovaPlugin {
     // Made in context of RNMT-3255, RNMT-3540 and RNMT-3803
     @TargetApi(29)
     private void handleLockScreenUsingNoOpOrSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
-        Log.v(TAG, "Handling lock screen via no action or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
+        Log.v(TAG, "Handling lock screen via KeyguardManager or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
 
         if (isDeviceSecure()) {
-            Log.v(TAG, "Unlocking Android devices above 10 using Keyguard manager");
+            Log.v(TAG, "Unlocking Android devices above 10 using KeyguardManager");
             KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
             Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
-            // Lock screen is already defined, carry on without using an intent
+            // Lock screen is already defined, unlock it via KeyguardManager
             intentRequestQueue.queueRequest(type, service, intent, callbackContext);
 
         } else {
