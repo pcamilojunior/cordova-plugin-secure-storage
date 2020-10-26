@@ -61,6 +61,12 @@
         <source-file src="src/android/RSA.java" target-dir="src/com/crypho/plugins/" />
         <source-file src="src/android/SecureStorage.java" target-dir="src/com/crypho/plugins/" />
         <source-file src="src/android/SharedPreferencesHandler.java" target-dir="src/com/crypho/plugins/" />
+        <source-file src="src/android/TransitionValue.java" target-dir="src/com/crypho/plugins/" />
+        <source-file src="src/android/EncryptionExecutor.java" target-dir="src/com/crypho/plugins/" />
+        <source-file src="src/android/DecryptionExecutor.java" target-dir="src/com/crypho/plugins/" />
+        <source-file src="src/android/ExecutorResult.java" target-dir="src/com/crypho/plugins/" />
+        <source-file src="src/android/ExecutorResultType.java" target-dir="src/com/crypho/plugins/" />
+
     </platform>
 
     <platform name="browser">
