@@ -267,20 +267,23 @@ public class SecureStorage extends CordovaPlugin {
         editor.commit();
     }
 
-    private int initializePreferences() {
+   private int initializePreferences() {
 
         Context ctx = getContext();
         File prefdir = new File(ctx.getApplicationInfo().dataDir,"shared_prefs");
         String[] filenames = prefdir.list();
         int i = 0;
         for(String name : filenames){
-            if(name.contains("SS")){
+            String packageName = ctx.getPackageName();
+            if(name.startsWith(ctx.getPackageName()) && name.endsWith("_SS.xml")){
                 String alias = name.substring(0, name.length() - 4);
                 String service = alias.substring(ctx.getPackageName().length() + 1, alias.length() -3);
 
                 SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias, getContext());
                 putStorage(service, PREFS);
                 i+=1;
+
+
             }
         }
         return i;
