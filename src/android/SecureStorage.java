@@ -275,20 +275,14 @@ public class SecureStorage extends CordovaPlugin {
         int i = 0;
         for(String name : filenames){
             String packageName = ctx.getPackageName();
-            if(name.contains(packageName) && name.length() > packageName.length()){
-                //obtaining only the store name and plugin tag minus file extension
-                String pluginTag = name.substring(packageName.length(),name.length() - 4);
-                //to avoid any errors with the store name we only take from the end of the  string
-                int begin = pluginTag.lastIndexOf("_SS");
-                int end = pluginTag.lastIndexOf(" ", begin);
-                if(pluginTag.contains("_SS") && begin != -1 && end == -1){
-                    String alias = name.substring(0, name.length() - 4);
-                    String service = alias.substring(ctx.getPackageName().length() + 1, alias.length() -3);
+            if(name.startsWith(ctx.getPackageName()) && name.endsWith("_SS.xml")){
+                String alias = name.substring(0, name.length() - 4);
+                String service = alias.substring(ctx.getPackageName().length() + 1, alias.length() -3);
 
-                    SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias, getContext());
-                    putStorage(service, PREFS);
-                    i+=1;
-                }
+                SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias, getContext());
+                putStorage(service, PREFS);
+                i+=1;
+
 
             }
         }
