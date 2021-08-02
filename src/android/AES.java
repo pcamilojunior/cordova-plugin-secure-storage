@@ -3,6 +3,8 @@ package com.crypho.plugins;
 import android.util.Log;
 import android.util.Base64;
 
+import com.outsystems.plugins.oslogger.OSLogger;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -76,6 +78,7 @@ public class AES {
 		try {
 			return Cipher.getInstance("AES/" + CIPHER_MODE + "/NoPadding");
 		} catch (Exception e) {
+			OSLogger.getInstance().logError("Failed to get Cipher: " + e.getMessage(), "OSSecureStorage", e);
 			return null;
 		}
 	}

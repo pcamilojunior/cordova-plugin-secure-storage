@@ -2,6 +2,9 @@ package com.crypho.plugins;
 
 
 import android.util.Log;
+
+import com.outsystems.plugins.oslogger.OSLogger;
+
 import java.util.concurrent.Callable;
 
 
@@ -25,6 +28,7 @@ public class DecryptionExecutor implements Callable<ExecutorResult> {
                 return new ExecutorResult(ExecutorResultType.SUCCESS, decrypted);
             } catch (Exception e) {
                 Log.e(TAG, "Decrypt (RSA/AES) failed :", e);
+                OSLogger.getInstance().logError("Failed to decrypt (RSA/AES) for alias '" + alias + "': " + e.getMessage(), "OSSecureStorage", e);
 
                 return new ExecutorResult(ExecutorResultType.ERROR, e.getMessage());
             }

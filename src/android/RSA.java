@@ -8,6 +8,8 @@ import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
 import android.util.Log;
 
+import com.outsystems.plugins.oslogger.OSLogger;
+
 import java.math.BigInteger;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -124,6 +126,7 @@ public class RSA {
 			try {
 				return getKeyStoreEntry(alias) != null;
 			} catch (Exception e) {
+				OSLogger.getInstance().logError("Entry with alias '" + alias + "' not available: " + e.getMessage(), "OSSecureStorage", e);
 				return false;
 			}
 		}
@@ -132,6 +135,7 @@ public class RSA {
 	private static KeyStore.PrivateKeyEntry getKeyStoreEntry(String alias) throws Exception {
 		KeyStore keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER);
 		keyStore.load(null, null);
+		// This emits a warning starting with Android 9 -- see https://stackoverflow.com/q/52024752/11667422
 		return (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, null);
 	}
 
@@ -139,6 +143,7 @@ public class RSA {
 		try {
 			return Cipher.getInstance("RSA/ECB/PKCS1Padding");
 		} catch (Exception e) {
+			OSLogger.getInstance().logError("Cipher instance 'RSA/ECB/PKCS1Padding' not available: " + e.getMessage(), "OSSecureStorage", e);
 			return null;
 		}
 	}

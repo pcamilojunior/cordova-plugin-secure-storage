@@ -3,6 +3,9 @@ package com.crypho.plugins;
 import android.content.Context;
 import android.util.Base64;
 import android.util.Log;
+
+import com.outsystems.plugins.oslogger.OSLogger;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.util.concurrent.Callable;
@@ -32,6 +35,7 @@ public class EncryptionExecutor implements Callable<ExecutorResult>
             return new ExecutorResult(ExecutorResultType.SUCCESS,result.toString());
         } catch (Exception e) {
             Log.e(TAG, "Encrypt (RSA/AES) failed :", e);
+            OSLogger.getInstance().logError("Failed to encrypt (RSA/AES) for alias '" + service2alias(service) + "' : " + e.getMessage(), "OSSecureStorage", e);
 
 
             return new ExecutorResult(ExecutorResultType.ERROR,e.getMessage());

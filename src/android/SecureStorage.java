@@ -28,6 +28,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Pair;
 
+import com.outsystems.plugins.oslogger.OSLogger;
+
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaArgs;
 import org.apache.cordova.CordovaPlugin;
@@ -105,6 +107,7 @@ public class SecureStorage extends CordovaPlugin {
                     RSAMap.put(tv.getService(), true);
 
                 } catch (Exception e) {
+                    OSLogger.getInstance().logError("Failed to create key pair for alias '" + service2alias(tv.getService()) + "': " + e.getMessage(), "OSSecureStorage", e);
                     e.printStackTrace();
                 }
             }
@@ -136,7 +139,7 @@ public class SecureStorage extends CordovaPlugin {
             return ((Boolean) isSecure.invoke(keyguardManager)).booleanValue();
 
         } catch (Exception e) {
-
+            OSLogger.getInstance().logError("Failed to invoke preferred method 'isDeviceSecure': " + e.getMessage(), "OSSecureStorage", e);
             // Best effort if the preferred method is unavailable
             return keyguardManager.isKeyguardSecure();
         }
@@ -212,6 +215,7 @@ public class SecureStorage extends CordovaPlugin {
             try {
                 securityMigration(callbackContext);
             } catch (JSONException e) {
+                OSLogger.getInstance().logError("Failed to perform security migration for alias '" + alias + "': " + e.getMessage(), "OSSecureStorage", e);
                 e.printStackTrace();
             }
         }
@@ -322,8 +326,10 @@ public class SecureStorage extends CordovaPlugin {
                 getStorage(service).store(key, result.result);
             }
         } catch (InterruptedException e) {
+            OSLogger.getInstance().logError("Failed to get encryption executor result for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
             result = new ExecutorResult(ExecutorResultType.ERROR,e.getMessage());
         } catch (ExecutionException e) {
+            OSLogger.getInstance().logError("Failed to get encryption executor result for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
             result = new ExecutorResult(ExecutorResultType.ERROR,e.getMessage());
         }
         return result;
@@ -370,8 +376,10 @@ public class SecureStorage extends CordovaPlugin {
         try {
             decrypted = decryptThread.get();
         } catch (InterruptedException e) {
+            OSLogger.getInstance().logError("Failed to get decryption executor result for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
             decrypted = new ExecutorResult(ExecutorResultType.ERROR, e.getMessage());
         } catch (ExecutionException e) {
+            OSLogger.getInstance().logError("Failed to get decryption executor result for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
             decrypted = new ExecutorResult(ExecutorResultType.ERROR, e.getMessage());
         }
 
@@ -392,6 +400,7 @@ public class SecureStorage extends CordovaPlugin {
                     callbackContext.success(new String(decrypted));
                 } catch (Exception e) {
                     Log.e(TAG, "Decrypt (RSA) failed :", e);
+                    OSLogger.getInstance().logError("Failed to decrypt (RSA) for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
                     callbackContext.error(e.getMessage());
                 }
             }
@@ -410,6 +419,7 @@ public class SecureStorage extends CordovaPlugin {
                     byte[] encrypted = RSA.encrypt(encryptMe.getBytes(), service2alias(service));
                     callbackContext.success(Base64.encodeToString(encrypted, Base64.DEFAULT));
                 } catch (Exception e) {
+                    OSLogger.getInstance().logError("Failed to encrypt (RSA) for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
                     Log.e(TAG, "Encrypt (RSA) failed :", e);
                     callbackContext.error(e.getMessage());
                 }
@@ -598,6 +608,7 @@ public class SecureStorage extends CordovaPlugin {
 
                 } catch (Exception e) {
                     Log.e(TAG, "Init returned error because: ", e);
+                    OSLogger.getInstance().logError("Failed to init for alias '" + service2alias(service) + "': " + e.getMessage(), "OSSecureStorage", e);
                     callbackContext.error(e.getMessage());
                 }
             }
