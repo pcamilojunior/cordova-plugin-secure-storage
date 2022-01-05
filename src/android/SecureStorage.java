@@ -501,7 +501,8 @@ public class SecureStorage extends CordovaPlugin {
             public void run() {
                 Log.v(TAG, "Handling lock screen");
 
-                if (Build.VERSION.SDK_INT >= 29) { // >= Android 10
+                // fix applied in context of RMET-1182
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M) {
                     handleLockScreenUsingNoOpOrSetNewPasswordIntent(type, service, callbackContext);
                 } else {
                     handleLockScreenUsingUnlockIntent(type, service, callbackContext);
@@ -511,12 +512,11 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     // Made in context of RNMT-3255, RNMT-3540 and RNMT-3803
-    @TargetApi(29)
     private void handleLockScreenUsingNoOpOrSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
-        Log.v(TAG, "Handling lock screen via KeyguardManager or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
+        Log.v(TAG, "Handling lock screen via KeyguardManager or ACTION_SET_NEW_PASSWORD intent (Android 6 or newer)");
 
         if (isDeviceSecure()) {
-            Log.v(TAG, "Unlocking Android devices above 10 using KeyguardManager");
+            Log.v(TAG, "Unlocking Android devices above 6 using KeyguardManager");
             KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
             Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
             // Lock screen is already defined, unlock it via KeyguardManager
@@ -532,7 +532,7 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     private void handleLockScreenUsingUnlockIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
-        Log.v(TAG, "Handling lock screen via UNLOCK intent (Android 9 or earlier)");
+        Log.v(TAG, "Handling lock screen via UNLOCK intent (Android 6 or earlier)");
 
         // Requests a new lock screen or requests to unlock if required
         Intent intent = new Intent("com.android.credentials.UNLOCK");
