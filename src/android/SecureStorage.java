@@ -46,6 +46,7 @@ public class SecureStorage extends CordovaPlugin {
 
     private static final String MSG_NOT_SUPPORTED = "API 19 (Android 4.4 KitKat) is required. This device is running API " + Build.VERSION.SDK_INT;
     private static final String MSG_DEVICE_NOT_SECURE = "Device is not secure";
+    private static final String MSG_AUTH_SKIPPED = "Authentication screen skipped";
     public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
 
     private final Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
@@ -547,9 +548,15 @@ public class SecureStorage extends CordovaPlugin {
 
         IntentRequest request = intentRequestQueue.notifyActivityResultCalled();
 
-        IntentRequestType type = request.getType();
         String service = request.getService();
         CallbackContext callbackContext = request.getCallbackContext();
+
+        // when the user clicks in the back button, the resultCode is 0
+        // when the user authenticate correctly, the resultCode is -1
+        IntentRequestType type = request.getType();
+        if (resultCode == 0) {
+            type = IntentRequestType.AUTHENTICATION_SKIPPED;
+        }
 
         handleCompletedRequest(type, service, callbackContext);
     }
@@ -565,6 +572,10 @@ public class SecureStorage extends CordovaPlugin {
 
             case SECURE_DEVICE:
                 handleCompletedSecureDevice(callbackContext);
+                break;
+
+            case AUTHENTICATION_SKIPPED:
+                handleAuthenticationSkipped(callbackContext);
                 break;
 
             default:
@@ -602,6 +613,11 @@ public class SecureStorage extends CordovaPlugin {
                 }
             }
         });
+    }
+
+    private void handleAuthenticationSkipped(CallbackContext callbackContext) {
+        Log.v(TAG, "Completed request with error if the user skipp the Authentication screen");
+        callbackContext.error(MSG_AUTH_SKIPPED);
     }
 
     private void handleCompletedSecureDevice(CallbackContext callbackContext) {
