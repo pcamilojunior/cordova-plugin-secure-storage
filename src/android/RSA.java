@@ -5,6 +5,7 @@ import android.os.Build;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.util.Log;
 
@@ -95,6 +96,10 @@ public class RSA {
 	}
 
 	public static void initCipher(int cipherMode, String alias) throws Exception {
+		initCipher(CIPHER, cipherMode, alias);
+	}
+
+	private static void initCipher(Cipher cipher, int cipherMode, String alias) throws Exception {
 		synchronized (LOCK) {
 			KeyStore.PrivateKeyEntry keyEntry = getKeyStoreEntry(alias);
 			if (keyEntry == null) {
@@ -112,20 +117,38 @@ public class RSA {
 					throw new Exception("Invalid cipher mode parameter");
 			}
 
-			
-			CIPHER.init(cipherMode, key);
-
+			cipher.init(cipherMode, key);
 		}
 	}
 
-
 	public static boolean isEntryAvailable(String alias) {
+		KeyStore.PrivateKeyEntry entry;
+
 		synchronized (LOCK) {
 			try {
-				return getKeyStoreEntry(alias) != null;
+				entry = getKeyStoreEntry(alias);
 			} catch (Exception e) {
 				return false;
 			}
+		}
+
+		if (entry == null) {
+			return false;
+		}
+
+		try {
+			Cipher tempCipher = getCipher();
+			initCipher(tempCipher, Cipher.ENCRYPT_MODE, alias);
+			initCipher(tempCipher, Cipher.DECRYPT_MODE, alias);
+			return true; // Key is usable
+		} catch (KeyPermanentlyInvalidatedException e) {
+			// Key is never usable again, so might as well consider it's not available
+			// This will let a new one be used in its place
+			return false;
+		} catch (Exception e) {
+			// Keys are currently unavailable but can still be used in the future
+			// App may explode but it's ok, as it will conserve data that can be used
+			return true;
 		}
 	}
 
