@@ -4,7 +4,9 @@ Changelog
 2.6.8-OS9 - 2022-01-28
 ------------------
 
+- Fix: Implementation the validation of the keys before to use. (RMET-1374)
 - Fix: Implementation of the skip flow in the authentication. (RMET-1373)
+
 2.6.8-OS8 - 2022-01-05
 ------------------
 
