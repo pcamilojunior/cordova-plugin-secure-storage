@@ -8,6 +8,7 @@
 
 - (void)init:(CDVInvokedUrlCommand*)command
 {
+    
     CFTypeRef accessibility;
     NSString *keychainAccessibility;
     NSDictionary *keychainAccesssibilityMapping;
