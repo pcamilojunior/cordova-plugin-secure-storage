@@ -5,8 +5,10 @@ import android.os.Build;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
+import android.security.keystore.KeyNotYetValidException;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
+import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Log;
 
 import java.math.BigInteger;
@@ -52,9 +54,9 @@ public class RSA {
 			notAfter.add(Calendar.YEAR, 100);
 			String principalString = String.format("CN=%s, OU=%s", alias, ctx.getPackageName());
 
-			if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
+			if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M) {
 				KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, KEYSTORE_PROVIDER);
-				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
+				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT | KeyProperties.PURPOSE_ENCRYPT)
 						.setUserAuthenticationRequired(true)
 						//the value used for the validity is 31 days a big number to ensure the keys are always usable after a authentication done by the user
 						.setUserAuthenticationValidityDurationSeconds(60*60*24*31)
@@ -65,10 +67,8 @@ public class RSA {
 						.setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
 						.setRandomizedEncryptionRequired(true)
 						.setKeyValidityStart(notBefore.getTime())
-						.setKeyValidityEnd(notAfter.getTime());
-				if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-					builder.setInvalidatedByBiometricEnrollment(false);
-				}
+						.setKeyValidityEnd(notAfter.getTime())
+					    .setInvalidatedByBiometricEnrollment(false);
 				KeyGenParameterSpec spec = builder.build();
 				generator.initialize(spec);
 				generator.generateKeyPair();
@@ -90,8 +90,6 @@ public class RSA {
 				kpGenerator.initialize(spec);
 				kpGenerator.generateKeyPair();
 			}
-
-
 		}
 	}
 
@@ -121,7 +119,7 @@ public class RSA {
 		}
 	}
 
-	public static boolean isEntryAvailable(String alias) {
+	public static boolean isEntryAvailable(String alias) throws UserNotAuthenticatedException {
 		KeyStore.PrivateKeyEntry entry;
 
 		synchronized (LOCK) {
@@ -141,6 +139,10 @@ public class RSA {
 			initCipher(tempCipher, Cipher.ENCRYPT_MODE, alias);
 			initCipher(tempCipher, Cipher.DECRYPT_MODE, alias);
 			return true; // Key is usable
+		} catch (UserNotAuthenticatedException e) {
+			throw e;
+		} catch (KeyNotYetValidException e) {
+			return false;
 		} catch (KeyPermanentlyInvalidatedException e) {
 			// Key is never usable again, so might as well consider it's not available
 			// This will let a new one be used in its place
