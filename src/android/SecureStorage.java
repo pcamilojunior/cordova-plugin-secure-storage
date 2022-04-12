@@ -217,20 +217,27 @@ public class SecureStorage extends CordovaPlugin {
             }
         }
 
+        try {
 
-        if (!isDeviceSecure()) {
-            // Lock screen that requires authentication is not defined
-            Log.e(TAG, MSG_DEVICE_NOT_SECURE);
-            callbackContext.error(MSG_DEVICE_NOT_SECURE);
+            if (!isDeviceSecure()) {
+                // Lock screen that requires authentication is not defined
+                Log.e(TAG, MSG_DEVICE_NOT_SECURE);
+                callbackContext.error(MSG_DEVICE_NOT_SECURE);
 
-        } else if (!RSA.isEntryAvailable(alias)) {
-            // Key for alias does not exist
+            } else if (!RSA.isEntryAvailable(alias)) {
+                // Key for alias does not exist
+                handleLockScreen(IntentRequestType.INIT, service, callbackContext);
+
+            } else {
+                // No actions are required to init correctly
+                initSuccess(callbackContext);
+            }
+
+        } catch (UserNotAuthenticatedException e) {
+            //
             handleLockScreen(IntentRequestType.INIT, service, callbackContext);
-
-        } else {
-            // No actions are required to init correctly
-            initSuccess(callbackContext);
         }
+
         return true;
     }
 
@@ -597,11 +604,17 @@ public class SecureStorage extends CordovaPlugin {
                         Log.v(TAG, "Completed request is of init action");
 
                         String alias = service2alias(service);
-                        if (!RSA.isEntryAvailable(alias)) {
-                            //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
-                            getStorage(service).clear();
-                            RSA.createKeyPair(getContext(), alias);
+
+                        try {
+                            if (!RSA.isEntryAvailable(alias)) {
+                                //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
+                                getStorage(service).clear();
+                                RSA.createKeyPair(getContext(), alias);
+                            }
+                        } catch (UserNotAuthenticatedException e) {
+                            Log.v(TAG, "Authentication validity expired, request a new login.");
                         }
+
                     }
 
                     Log.v(TAG, "init returned success");

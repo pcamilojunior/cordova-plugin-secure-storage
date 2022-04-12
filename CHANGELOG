@@ -1,6 +1,12 @@
 Changelog
 =========
 
+2.6.8-OS11 - 2022-04-12
+------------------
+
+- Fix: Fix for the error messages: Keystore operation failed, User not authenticated, Key not yet valid. (RMET-1182)
+
+
 2.6.8-OS9 - 2022-01-28
 ------------------
 
