@@ -46,12 +46,7 @@ public class RSA {
 
 	public static void createKeyPair(Context ctx, String alias) throws Exception {
 		synchronized (LOCK) {
-			Calendar notBefore = Calendar.getInstance();
 
-			//this back dates the date of the key in order to avoid some timezone issues found during use with some devices
-			notBefore.add(Calendar.HOUR_OF_DAY, -26);
-			Calendar notAfter = Calendar.getInstance();
-			notAfter.add(Calendar.YEAR, 100);
 			String principalString = String.format("CN=%s, OU=%s", alias, ctx.getPackageName());
 
 			if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M) {
@@ -66,8 +61,6 @@ public class RSA {
 						.setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
 						.setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
 						.setRandomizedEncryptionRequired(true)
-						.setKeyValidityStart(notBefore.getTime())
-						.setKeyValidityEnd(notAfter.getTime())
 					    .setInvalidatedByBiometricEnrollment(false);
 				KeyGenParameterSpec spec = builder.build();
 				generator.initialize(spec);
@@ -80,8 +73,6 @@ public class RSA {
 						.setAlias(alias)
 						.setSubject(new X500Principal(principalString))
 						.setSerialNumber(BigInteger.ONE)
-						.setStartDate(notBefore.getTime())
-						.setEndDate(notAfter.getTime())
 						.setEncryptionRequired()
 						.setKeySize(2048)
 						.setKeyType("RSA")
