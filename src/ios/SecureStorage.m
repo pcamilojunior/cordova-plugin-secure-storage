@@ -4,10 +4,37 @@
 #import <Cordova/CDV.h>
 #import "SAMKeychain.h"
 
+@interface SecureStorage ()
+
+/// This local property is used to store the command to execute when SecureStorage tries to access Keychain without Protected Data Access being available. It's included as a fix for the iOS 15 pre-warm functionality.
+@property(nonatomic, strong) CDVInvokedUrlCommand *savedCommand API_AVAILABLE(ios(15));
+
+@end
+
 @implementation SecureStorage
+
+/// Method triggered when the `UIApplicationProtectedDataDidBecomeAvailable`  notification is trigged.
+- (void)dataBecameAvailableNotification:(NSNotification *)notification API_AVAILABLE(ios(15))
+{
+    // Re-triggers the `init` method as before, using the stored command
+    [self init:self.savedCommand];
+}
 
 - (void)init:(CDVInvokedUrlCommand*)command
 {
+    if (@available(iOS 15, *)) {    
+        // if Protected Data Acess is not yet available, the app observes the `dataBecomeAvailableNotification:`, so that the method resumes when the notification is triggered
+        if (!UIApplication.sharedApplication.isProtectedDataAvailable) {
+            self.savedCommand = command;
+            [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(dataBecameAvailableNotification:) name:UIApplicationProtectedDataDidBecomeAvailable object:nil];
+            return;
+        }
+        
+        // all good, we can remove what was added and proceed.
+        self.savedCommand = nil;
+        [NSNotificationCenter.defaultCenter removeObserver:self name:UIApplicationProtectedDataDidBecomeAvailable object:nil];
+    }
+
     CFTypeRef accessibility;
     NSString *keychainAccessibility;
     NSDictionary *keychainAccesssibilityMapping;
