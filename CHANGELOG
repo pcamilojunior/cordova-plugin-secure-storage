@@ -1,6 +1,11 @@
 Changelog
 =========
 
+2.6.8-OS12 - 2022-04-14
+------------------
+
+- Fix: For iOS 15, on the `init` method, if ProtectedData is unavailable, add an observer for the `UIApplicationProtectedDataDidBecomeAvailable` notification that re-triggers `init` when it becomes available. (RMET-1417)
+
 2.6.8-OS11 - 2022-04-12
 ------------------
 
