@@ -4,6 +4,7 @@ import java.util.Set;
 
 import android.content.SharedPreferences;
 import android.content.Context;
+import android.util.Log;
 
 public class SharedPreferencesHandler {
 	private SharedPreferences prefs;
@@ -15,22 +16,26 @@ public class SharedPreferencesHandler {
 	}
 
     void store(String key, String value){
+        Log.v("SharedPreferencesHandler", "called store in SharedPreferencesHandler");
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString(key, value);
         editor.commit();
     }
 
     String fetch (String key){
+        Log.v("SharedPreferencesHandler", "called fetch in SharedPreferencesHandler");
         return prefs.getString(key, null);
     }
 
     void remove (String key){
+        Log.v("SharedPreferencesHandler", "called remove in SharedPreferencesHandler");
         SharedPreferences.Editor editor = prefs.edit();
         editor.remove(key);
         editor.commit();
     }
 
     Set keys (){
+        Log.v("SharedPreferencesHandler", "called keys in SharedPreferencesHandler");
     	Set res = prefs.getAll().keySet();
     	res.remove(MIGRATED_TO_NATIVE_KEY);
     	res.remove(MIGRATED_TO_NATIVE_STORAGE_KEY);
@@ -38,6 +43,7 @@ public class SharedPreferencesHandler {
     }
 
     void clear (){
+        Log.v("SharedPreferencesHandler", "cleared SharedPreferences");
         SharedPreferences.Editor editor = prefs.edit();
         editor.clear();
         editor.commit();

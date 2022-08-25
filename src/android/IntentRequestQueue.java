@@ -1,6 +1,7 @@
 package com.crypho.plugins;
 
 import android.content.Intent;
+import android.util.Log;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -23,6 +24,7 @@ class IntentRequestQueue {
     }
 
     void queueRequest(IntentRequestType type, String service, Intent intent, CallbackContext context) {
+        Log.v("IntentRequestQueue", "Called queueRequest");
         IntentRequest request = new IntentRequest(type, service, intent, context);
         this.queueRequest(request);
     }
@@ -58,6 +60,8 @@ class IntentRequestQueue {
 
     // Handles the first request
     private void handleHeadRequest() {
+        Log.v("IntentRequestQueue", "Called handleHeadRequest");
+
         IntentRequest request = this.requests.get(0);
         Intent intent = request.getIntent();
 

@@ -63,6 +63,7 @@ public class SecureStorage extends CordovaPlugin {
 
 
     private void securityMigration(CallbackContext callbackContext) throws JSONException {
+        Log.v(TAG, "Inside securityMigration");
         //transfer all existing items to new table
         Hashtable<Integer, TransitionValue> transitionTable = new Hashtable<Integer, TransitionValue>();
         Hashtable<String,Boolean> RSAMap= new Hashtable<String, Boolean>();
@@ -100,6 +101,9 @@ public class SecureStorage extends CordovaPlugin {
             //RSA key needs to be created for each service
             if(!RSAMap.get(tv.getService())){
                 try{
+
+                    Log.v(TAG, "About to call RSA.createKeyPair from security migration");
+
                     RSA.createKeyPair(getContext(),service2alias(tv.getService()));
 
                     RSAMap.put(tv.getService(), true);
@@ -203,19 +207,23 @@ public class SecureStorage extends CordovaPlugin {
         String service = args.getString(0);
         String alias = service2alias(service);
 
+        Log.v(TAG, "alias is:" + alias);
+
         // Create helper object to manage a SharedPreferences object for the alias
         SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias + "_SS", getContext());
         putStorage(service, PREFS);
 
         if(checkForSecurityMigration()){
+            Log.v(TAG, "Going to do security migration");
 
             try {
                 securityMigration(callbackContext);
+                Log.v(TAG, "Did security migration");
             } catch (JSONException e) {
+                Log.v(TAG, "Failed security migration");
                 e.printStackTrace();
             }
         }
-
 
         if (!isDeviceSecure()) {
             // Lock screen that requires authentication is not defined
@@ -223,10 +231,14 @@ public class SecureStorage extends CordovaPlugin {
             callbackContext.error(MSG_DEVICE_NOT_SECURE);
 
         } else if (!RSA.isEntryAvailable(alias)) {
+
+            Log.v(TAG, "Entry is not available, meaning, key for alias does not exist. Calling handleLockScreen.");
+
             // Key for alias does not exist
             handleLockScreen(IntentRequestType.INIT, service, callbackContext);
 
         } else {
+            Log.v(TAG, "Device is secure and entry is available, so we can call initSuccess");
             // No actions are required to init correctly
             initSuccess(callbackContext);
         }
@@ -300,9 +312,11 @@ public class SecureStorage extends CordovaPlugin {
         ExecutorResult result = encrytionHelper(service, key, value);
 
         if(result.type != ExecutorResultType.ERROR){
+            Log.v(TAG, "set resulted in success");
             callbackContext.success();
         }
         else{
+            Log.v(TAG, "set resulted in error");
             callbackContext.error(result.result);
         }
         return true;
@@ -310,6 +324,8 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     private ExecutorResult encrytionHelper(String service, String key, String value) {
+
+        Log.v(TAG, "Called encryptionHelper");
 
         ExecutorResult result;
 
@@ -338,14 +354,18 @@ public class SecureStorage extends CordovaPlugin {
         final String key = args.getString(1);
         String value = getStorage(service).fetch(key);
         if (value != null) {
+            Log.v(TAG, "get action - value is not null");
             ExecutorResult result = decryptHelper(value, service, callbackContext);
 
             if (result.type != ExecutorResultType.ERROR) {
+                Log.v(TAG, "get action resulted in success");
                 callbackContext.success(result.result);
             }else {
+                Log.v(TAG, "get action resulted in error");
                 callbackContext.error(result.result);
             }
         } else {
+            Log.v(TAG, "get action - value null so it results in error");
             callbackContext.error("Key [" + key + "] not found.");
         }
         return true;
@@ -453,8 +473,10 @@ public class SecureStorage extends CordovaPlugin {
         String key = args.getString(1);
         String value = getStorage(service).fetch(key);
         if (value != null) {
+            Log.v(TAG, "fetch action resulted in success");
             callbackContext.success(value);
         } else {
+            Log.v(TAG, "fetch action resulted in error");
             callbackContext.error("Key [" + key + "] not found.");
         }
         return true;
@@ -502,8 +524,10 @@ public class SecureStorage extends CordovaPlugin {
                 Log.v(TAG, "Handling lock screen");
 
                 if (Build.VERSION.SDK_INT >= 29) { // >= Android 10
+                    Log.v(TAG, "Handling lock screen for devices above or equal to API 29");
                     handleLockScreenUsingNoOpOrSetNewPasswordIntent(type, service, callbackContext);
                 } else {
+                    Log.v(TAG, "Handling lock screen for devices below to API 29");
                     handleLockScreenUsingUnlockIntent(type, service, callbackContext);
                 }
             }
@@ -513,9 +537,11 @@ public class SecureStorage extends CordovaPlugin {
     // Made in context of RNMT-3255, RNMT-3540 and RNMT-3803
     @TargetApi(29)
     private void handleLockScreenUsingNoOpOrSetNewPasswordIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Called handleLockScreenUsingNoOpOrSetNewPasswordIntent");
         Log.v(TAG, "Handling lock screen via KeyguardManager or ACTION_SET_NEW_PASSWORD intent (Android 10 or newer)");
 
         if (isDeviceSecure()) {
+            Log.v(TAG, "Device is secure");
             Log.v(TAG, "Unlocking Android devices above 10 using KeyguardManager");
             KeyguardManager keyguardManager = (KeyguardManager) (getContext().getSystemService(Context.KEYGUARD_SERVICE));
             Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
@@ -523,6 +549,7 @@ public class SecureStorage extends CordovaPlugin {
             intentRequestQueue.queueRequest(type, service, intent, callbackContext);
 
         } else {
+            Log.v(TAG, "Device is not secure");
             Log.v(TAG, "Lock screen is not defined, requesting one via ACTION_SET_NEW_PASSWORD intent");
 
             // Lock screen is not defined, so we request a new one
@@ -532,6 +559,7 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     private void handleLockScreenUsingUnlockIntent(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Called handleLockScreenUsingUnlockIntent");
         Log.v(TAG, "Handling lock screen via UNLOCK intent (Android 9 or earlier)");
 
         // Requests a new lock screen or requests to unlock if required
@@ -541,6 +569,7 @@ public class SecureStorage extends CordovaPlugin {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        Log.v(TAG, "Inside onActivityResult");
         Log.v(TAG, "Activity started by intent has finished");
 
         super.onActivityResult(requestCode, resultCode, intent);
@@ -555,15 +584,18 @@ public class SecureStorage extends CordovaPlugin {
     }
 
     private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext) {
+        Log.v(TAG, "Inside handleCompletedRequest");
         Log.v(TAG, "Request has completed (maybe from an intent)");
 
         switch (type) {
 
             case INIT:
+                Log.v(TAG, "case INIT");
                 handleCompletedInit(service, callbackContext);
                 break;
 
             case SECURE_DEVICE:
+                Log.v(TAG, "case SECURE_DEVICE");
                 handleCompletedSecureDevice(callbackContext);
                 break;
 
@@ -587,6 +619,9 @@ public class SecureStorage extends CordovaPlugin {
 
                         String alias = service2alias(service);
                         if (!RSA.isEntryAvailable(alias)) {
+
+                            Log.v(TAG, "entry is not available");
+
                             //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
                             getStorage(service).clear();
                             RSA.createKeyPair(getContext(), alias);

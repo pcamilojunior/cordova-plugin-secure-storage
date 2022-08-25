@@ -43,6 +43,9 @@ public class RSA {
 
 	public static void createKeyPair(Context ctx, String alias) throws Exception {
 		synchronized (LOCK) {
+
+			Log.v("RSA", "Called createKeyPair from RSA");
+
 			Calendar notBefore = Calendar.getInstance();
 
 			//this back dates the date of the key in order to avoid some timezone issues found during use with some devices
@@ -52,6 +55,8 @@ public class RSA {
 			String principalString = String.format("CN=%s, OU=%s", alias, ctx.getPackageName());
 
 			if(Build.VERSION.SDK_INT > Build.VERSION_CODES.M){
+
+				Log.v("RSA", "createKeyPair for versions above API 23");
 				KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, KEYSTORE_PROVIDER);
 				KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
 						.setUserAuthenticationRequired(true)
@@ -66,14 +71,18 @@ public class RSA {
 						.setKeyValidityStart(notBefore.getTime())
 						.setKeyValidityEnd(notAfter.getTime());
 				if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
+					Log.v("RSA", "will setInvalidatedByBiometricEnrollment because Android above or equal to API 24");
 					builder.setInvalidatedByBiometricEnrollment(false);
 				}
 				KeyGenParameterSpec spec = builder.build();
 				generator.initialize(spec);
+				Log.v("RSA", "About to call generator.generateKeyPair for versions above API 23");
 				generator.generateKeyPair();
 			}
 			//pre Android 6 key gen
 			else{
+
+				Log.v("RSA", "createKeyPair for versions below or equal to API 23");
 
 				KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(ctx)
 						.setAlias(alias)
@@ -87,6 +96,7 @@ public class RSA {
 						.build();
 				KeyPairGenerator kpGenerator = KeyPairGenerator.getInstance("RSA", KEYSTORE_PROVIDER);
 				kpGenerator.initialize(spec);
+				Log.v("RSA", "About to call generator.generateKeyPair for versions below or equal to API 23");
 				kpGenerator.generateKeyPair();
 			}
 
