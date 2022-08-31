@@ -62,6 +62,9 @@ public class RSA {
 						.setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
 						.setRandomizedEncryptionRequired(true)
 					    .setInvalidatedByBiometricEnrollment(false);
+				if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
+					builder.setDevicePropertiesAttestationIncluded(true);
+				}
 				KeyGenParameterSpec spec = builder.build();
 				generator.initialize(spec);
 				generator.generateKeyPair();
