@@ -63,7 +63,7 @@ public class RSA {
 						.setRandomizedEncryptionRequired(true)
 					    .setInvalidatedByBiometricEnrollment(false);
 				if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S){
-					builder.setDevicePropertiesAttestationIncluded(true);
+					builder.setDevicePropertiesAttestationIncluded(false);
 				}
 				KeyGenParameterSpec spec = builder.build();
 				generator.initialize(spec);
