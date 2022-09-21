@@ -32,18 +32,21 @@
             <feature name="SecureStorage">
                 <param name="ios-package" value="SecureStorage"/>
             </feature>
+            <preference name="deployment-target" value="13" />
+            <preference name="UseSwiftLanguageVersion" value="5" />
         </config-file>
-        <source-file src="src/ios/SecureStorage.m" />
-        <header-file src="src/ios/SecureStorage.h" />
+        
+        <source-file src="src/ios/SecureStorage.swift"/>
+        <framework src="src/ios/frameworks/OSCore.xcframework" embed="true" custom="true" />
 
-        <source-file src="src/ios/SAMKeychain/SAMKeychain.m" />
-        <header-file src="src/ios/SAMKeychain/SAMKeychain.h" />
-        <source-file src="src/ios/SAMKeychain/SAMKeychainQuery.m" />
-        <header-file src="src/ios/SAMKeychain/SAMKeychainQuery.h" />
-
-        <resource-file src="src/ios/SAMKeychain/SAMKeychain.bundle" />
-
-        <framework src="Security.framework" />
+        <podspec>
+            <config>
+                <source url="https://github.com/CocoaPods/Specs.git"/>
+            </config>
+            <pods use-frameworks="true">
+                <pod options=":git => 'https://github.com/OutSystems/OSKeyStoreLib-iOS.git', :tag => '0.1.0'" />
+            </pods>
+        </podspec>
 
     </platform>
 
