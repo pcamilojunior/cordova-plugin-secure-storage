@@ -34,9 +34,7 @@ class SecureStorage: CDVPlugin {
         }
         
         self.callbackId = command.callbackId
-        
-        let preferencesAccessibility = self.commandDelegate.settings["keychainaccessibility"] as? String
-        self.plugin?.set(accessibilityType: preferencesAccessibility)
+        self.callback(result: "", error: nil)
     }
     
     @objc(get:)
