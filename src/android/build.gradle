@@ -1,0 +1,36 @@
+buildscript {
+    repositories {
+        google()
+        jcenter()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.+'
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+    repositories {
+        maven { url 'https://pkgs.dev.azure.com/OutSystemsRD/9e79bc5b-69b2-4476-9ca5-d67594972a52/_packaging/PublicArtifactRepository/maven/v1' }
+    }
+}
+
+repositories{
+    jcenter()
+    flatDir {
+        dirs 'src/main/libs'
+    }
+}
+
+
+apply plugin: 'kotlin-kapt'
+
+dependencies {
+    implementation("com.github.outsystems:oscore-android:1.1.0@aar")
+    implementation("com.github.outsystems:oscordova-android:1.1.0@aar")
+    
+    implementation (name:'OSKeystoreLib', ext:'aar')
+}
