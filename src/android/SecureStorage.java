@@ -391,21 +391,24 @@ public class SecureStorage extends CordovaPlugin {
 
          */
 
-        Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
-
-        keystoreController.setValues(key, null, store, authenticate);
-
-        if(authenticate){
-            cordova.setActivityResultCallback(this);
-            keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_GET);
+        if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
+            this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
         }
         else{
-            String value = keystoreController.getValueEncrypted(cordova.getActivity());
-            if(value != null){
-                callbackContext.success(value);
+            Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
+            keystoreController.setValues(key, null, store, authenticate);
+            if(authenticate){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_GET);
             }
             else{
-                this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                String value = keystoreController.getValueEncrypted(cordova.getActivity());
+                if(value != null){
+                    callbackContext.success(value);
+                }
+                else{
+                    this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                }
             }
         }
         return true;
@@ -498,20 +501,25 @@ public class SecureStorage extends CordovaPlugin {
 
         //getStorage(service).remove(key);
 
-        Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
-        keystoreController.setValues(key, null, store, authenticate);
-
-        if(authenticate){
-            cordova.setActivityResultCallback(this);
-            keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_REMOVE);
+        if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
+            this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
         }
         else{
-            Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
-            if(removed){
-                callbackContext.success();
+            Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
+            keystoreController.setValues(key, null, store, authenticate);
+
+            if(authenticate){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_REMOVE);
             }
             else{
-                callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
+                if(removed){
+                    callbackContext.success();
+                }
+                else{
+                    callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                }
             }
         }
         return true;
