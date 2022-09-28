@@ -52,6 +52,7 @@ public class SecureStorage extends CordovaPlugin {
     private static final String MSG_DEVICE_NOT_SECURE = "Device is not secure";
     private static final String MSG_AUTH_SKIPPED = "Authentication screen skipped";
     public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
+    private static final String ERROR_FORMAT_PREFIX = "OS-PLUG-KSTR-";
 
     private KeystoreController keystoreController = null;
     private CallbackContext callbackContext = null;
@@ -209,6 +210,7 @@ public class SecureStorage extends CordovaPlugin {
     private boolean init(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called init action");
 
+
         // Get key alias based on the name of the store
         String service = args.getString(0);
         String alias = service2alias(service);
@@ -226,6 +228,7 @@ public class SecureStorage extends CordovaPlugin {
             }
         }
 
+        /*
         try {
 
             if (!isDeviceSecure()) {
@@ -246,6 +249,9 @@ public class SecureStorage extends CordovaPlugin {
             //
             handleLockScreen(IntentRequestType.INIT, service, callbackContext);
         }
+         */
+
+        callbackContext.success(1);
 
         return true;
     }
@@ -392,7 +398,7 @@ public class SecureStorage extends CordovaPlugin {
          */
 
         if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
-            this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+            sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
         }
         else{
             Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
@@ -407,7 +413,7 @@ public class SecureStorage extends CordovaPlugin {
                     callbackContext.success(value);
                 }
                 else{
-                    this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                    sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
                 }
             }
         }
@@ -502,7 +508,7 @@ public class SecureStorage extends CordovaPlugin {
         //getStorage(service).remove(key);
 
         if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
-            this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+            sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
         }
         else{
             Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
@@ -518,7 +524,7 @@ public class SecureStorage extends CordovaPlugin {
                     callbackContext.success();
                 }
                 else{
-                    callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                    sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
                 }
             }
         }
@@ -537,6 +543,7 @@ public class SecureStorage extends CordovaPlugin {
 
     private boolean fetch(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called fetch action");
+        /*
         String service = args.getString(0);
         String key = args.getString(1);
         String value = getStorage(service).fetch(key);
@@ -545,6 +552,8 @@ public class SecureStorage extends CordovaPlugin {
         } else {
             callbackContext.error("Key [" + key + "] not found.");
         }
+         */
+        callbackContext.success();
         return true;
     }
 
@@ -644,7 +653,7 @@ public class SecureStorage extends CordovaPlugin {
 
                 case Activity.RESULT_CANCELED:
                     //send error saying user cancelled
-                    this.callbackContext.error(KeystoreError.AUTHENTICATION_FAILED_ERROR.getDescription());
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
 
                 default:
                     break;
@@ -659,13 +668,13 @@ public class SecureStorage extends CordovaPlugin {
                         this.callbackContext.success(value);
                     }
                     else{
-                        this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
                     }
                     break;
 
                 case Activity.RESULT_CANCELED:
                     //send error saying user cancelled
-                    this.callbackContext.error(KeystoreError.AUTHENTICATION_FAILED_ERROR.getDescription());
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
 
                 default:
                     break;
@@ -680,13 +689,13 @@ public class SecureStorage extends CordovaPlugin {
                         this.callbackContext.success();
                     }
                     else{
-                        this.callbackContext.error(KeystoreError.KEY_NOT_FOUND_ERROR.getDescription());
+                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
                     }
                     break;
 
                 case Activity.RESULT_CANCELED:
                     //send error saying user cancelled
-                    this.callbackContext.error(KeystoreError.AUTHENTICATION_FAILED_ERROR.getDescription());
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
 
                 default:
                     break;
@@ -793,5 +802,21 @@ public class SecureStorage extends CordovaPlugin {
         return cordova.getActivity().getApplicationContext();
     }
 
+    private void sendError(KeystoreError error){
+        JSONObject jsonResult = new JSONObject();
+        try{
+            jsonResult.put("code", formatErrorCode(error.getCode()));
+            jsonResult.put("message", error.getDescription());
+            this.callbackContext.error(jsonResult);
+        }catch (JSONException e){
+            Log.d(TAG, "Error: JSONException occurred while preparing to send an error.");
+            this.callbackContext.error("There was an error performing the operation.");
+        }
+    }
+
+    private String formatErrorCode(int code) {
+        String stringCode = Integer.toString(code);
+        return ERROR_FORMAT_PREFIX + ("0000" + stringCode).substring(stringCode.length());
+    }
    
 }
