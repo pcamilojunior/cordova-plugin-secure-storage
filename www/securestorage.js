@@ -256,7 +256,7 @@ SecureStorageAndroid.prototype = {
                 },
                 error,
                 'remove',
-                [this.service, key]
+                [this.service, '_SS_' + key]
             );
         } catch (e) {
             error(e);
@@ -358,7 +358,7 @@ SecureStorageAndroid.prototype = {
             success,
             error,
             'get',
-            [this.service, key]
+            [this.service, '_SS_' + key]
         );
     },
 
@@ -369,7 +369,7 @@ SecureStorageAndroid.prototype = {
             },
             error,
             'set',
-            [this.service, key, value, authenticate]
+            [this.service, '_SS_' + key, value, authenticate]
         );
     },
 
