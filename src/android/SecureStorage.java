@@ -52,6 +52,8 @@ public class SecureStorage extends CordovaPlugin {
     private static final String MSG_DEVICE_NOT_SECURE = "Device is not secure";
     private static final String MSG_AUTH_SKIPPED = "Authentication screen skipped";
     public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
+
+    private static final String MIGRATED_FOR_ENCRYPTED = "MIGRATED_FOR_ENCRYPTED";
     private static final String ERROR_FORMAT_PREFIX = "OS-PLUG-KSTR-";
 
     private KeystoreController keystoreController = null;
@@ -251,9 +253,46 @@ public class SecureStorage extends CordovaPlugin {
         }
          */
 
+        if(isMigrationToEncryptedNeeded()){
+            doDataMigration(callbackContext);
+        }
+
         callbackContext.success(1);
 
         return true;
+    }
+
+    private void doDataMigration(CallbackContext callbackContext) throws JSONException{
+        //transfer all existing items to new table
+        Enumeration<String> services = SERVICE_STORAGE.keys();
+        while(services.hasMoreElements()){
+            String service = services.nextElement();
+            SharedPreferencesHandler handler = SERVICE_STORAGE.get(service);
+            Set<String> keys = handler.keys();
+
+            for(String key : keys){
+                String value = handler.fetch(key);
+                ExecutorResult result = decryptHelper(value, service,callbackContext);
+
+                if(result.type != ExecutorResultType.ERROR){
+                    keystoreController.setValues(key, result.result, service, false);
+                    keystoreController.setValueEncrypted(cordova.getActivity());
+                }
+                else{
+                    callbackContext.error("MIGRATION FAILED : " + result.result);
+                    return;
+                }
+            }
+        }
+        markAsMigratedToEncrypted();
+    }
+
+    private Boolean isMigrationToEncryptedNeeded(){
+        return !cordova.getActivity().getSharedPreferences(MIGRATED_FOR_ENCRYPTED, Context.MODE_PRIVATE).getBoolean(MIGRATED_FOR_ENCRYPTED, false);
+    }
+
+    private void markAsMigratedToEncrypted(){
+        cordova.getActivity().getSharedPreferences(MIGRATED_FOR_ENCRYPTED, Context.MODE_PRIVATE).edit().putBoolean(MIGRATED_FOR_ENCRYPTED, true).apply();
     }
 
     private boolean checkForSecurityMigration() {
