@@ -54,6 +54,7 @@ public class SecureStorage extends CordovaPlugin {
     public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
 
     private static final String MIGRATED_FOR_ENCRYPTED = "MIGRATED_FOR_ENCRYPTED";
+    private static final String MSG_USER_NOT_AUTHENTICATED = "User not authenticated";
     private static final String ERROR_FORMAT_PREFIX = "OS-PLUG-KSTR-";
 
     private KeystoreController keystoreController = null;
@@ -231,6 +232,7 @@ public class SecureStorage extends CordovaPlugin {
         }
 
         /*
+
         try {
 
             if (!isDeviceSecure()) {
@@ -251,40 +253,61 @@ public class SecureStorage extends CordovaPlugin {
             //
             handleLockScreen(IntentRequestType.INIT, service, callbackContext);
         }
+
          */
 
         if(isMigrationToEncryptedNeeded()){
-            doDataMigration(callbackContext);
+            Boolean migrationSuccessful = doDataMigration(callbackContext);
+            if(migrationSuccessful){
+                callbackContext.success(1);
+            }
         }
-
-        callbackContext.success(1);
+        else{
+            callbackContext.success(1);
+        }
 
         return true;
     }
 
-    private void doDataMigration(CallbackContext callbackContext) throws JSONException{
-        //transfer all existing items to new table
-        Enumeration<String> services = SERVICE_STORAGE.keys();
-        while(services.hasMoreElements()){
-            String service = services.nextElement();
-            SharedPreferencesHandler handler = SERVICE_STORAGE.get(service);
-            Set<String> keys = handler.keys();
+    private Boolean doDataMigration(CallbackContext callbackContext){
 
-            for(String key : keys){
-                String value = handler.fetch(key);
-                ExecutorResult result = decryptHelper(value, service,callbackContext);
+        this.callbackContext = callbackContext;
 
-                if(result.type != ExecutorResultType.ERROR){
-                    keystoreController.setValues(key, result.result, service, false);
-                    keystoreController.setValueEncrypted(cordova.getActivity());
-                }
-                else{
-                    callbackContext.error("MIGRATION FAILED : " + result.result);
-                    return;
+        try {
+            Enumeration<String> services = SERVICE_STORAGE.keys();
+            while(services.hasMoreElements()){
+                String service = services.nextElement();
+                SharedPreferencesHandler handler = SERVICE_STORAGE.get(service);
+                Set<String> keys = handler.keys();
+
+                for(String key : keys){
+                    String value = handler.fetch(key);
+                    ExecutorResult result = decryptHelper(value, service,callbackContext);
+
+                    if(result.type != ExecutorResultType.ERROR){
+                        keystoreController.setValues(key, result.result, service, false);
+                        keystoreController.setValueEncrypted(cordova.getActivity());
+                    }
+                    else{
+                        if(result.result.equals(MSG_USER_NOT_AUTHENTICATED)){
+                            //in this case, we should request user authentication and try proceeding with the migration
+                            cordova.setActivityResultCallback(this);
+                            keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_MIGRATION);
+                        }
+                        else{
+                            callbackContext.error("MIGRATION FAILED : " + result.result);
+                        }
+                        return false;
+                    }
                 }
             }
+            markAsMigratedToEncrypted();
+            return true;
+        } catch (JSONException e){
+            Log.d(TAG, e.getMessage());
+            callbackContext.error("Migration failed because of JSONException");
+            return false;
         }
-        markAsMigratedToEncrypted();
     }
 
     private Boolean isMigrationToEncryptedNeeded(){
@@ -729,6 +752,27 @@ public class SecureStorage extends CordovaPlugin {
                     }
                     else{
                         sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    }
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    //send error saying user cancelled
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
+
+                default:
+                    break;
+            }
+        }
+        else if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_MIGRATION){
+            switch (resultCode){
+
+                case Activity.RESULT_OK:
+                    Boolean result = doDataMigration(callbackContext);
+                    if(result){
+                        this.callbackContext.success(1);
+                    }
+                    else{
+                        sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
                     }
                     break;
 
