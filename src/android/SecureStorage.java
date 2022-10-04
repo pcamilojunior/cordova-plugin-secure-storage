@@ -282,11 +282,12 @@ public class SecureStorage extends CordovaPlugin {
 
                 for(String key : keys){
                     String value = handler.fetch(key);
-                    ExecutorResult result = decryptHelper(value, service,callbackContext);
+                    ExecutorResult result = decryptHelper(value, service, callbackContext);
 
                     if(result.type != ExecutorResultType.ERROR){
                         keystoreController.setValues(key, result.result, service, false);
                         keystoreController.setValueEncrypted(cordova.getActivity());
+                        handler.remove(key);
                     }
                     else{
                         if(result.result.equals(MSG_USER_NOT_AUTHENTICATED)){
@@ -300,6 +301,7 @@ public class SecureStorage extends CordovaPlugin {
                         return false;
                     }
                 }
+                SERVICE_STORAGE.remove(service);
             }
             markAsMigratedToEncrypted();
             return true;
