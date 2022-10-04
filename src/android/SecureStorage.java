@@ -231,31 +231,6 @@ public class SecureStorage extends CordovaPlugin {
             }
         }
 
-        /*
-
-        try {
-
-            if (!isDeviceSecure()) {
-                // Lock screen that requires authentication is not defined
-                Log.e(TAG, MSG_DEVICE_NOT_SECURE);
-                callbackContext.error(MSG_DEVICE_NOT_SECURE);
-
-            } else if (!RSA.isEntryAvailable(alias)) {
-                // Key for alias does not exist
-                handleLockScreen(IntentRequestType.INIT, service, callbackContext);
-
-            } else {
-                // No actions are required to init correctly
-                initSuccess(callbackContext);
-            }
-
-        } catch (UserNotAuthenticatedException e) {
-            //
-            handleLockScreen(IntentRequestType.INIT, service, callbackContext);
-        }
-
-         */
-
         if(isMigrationToEncryptedNeeded()){
             Boolean migrationSuccessful = doDataMigration(callbackContext);
             if(migrationSuccessful){
@@ -388,19 +363,6 @@ public class SecureStorage extends CordovaPlugin {
         final String key = args.getString(1);
         final String value = args.getString(2);
         final Boolean authenticate = args.getBoolean(3);
-        /*
-
-        ExecutorResult result = encrytionHelper(service, key, value);
-
-        if(result.type != ExecutorResultType.ERROR){
-            callbackContext.success();
-        }
-        else{
-            callbackContext.error(result.result);
-        }
-        return true;
-
-         */
 
         keystoreController.setValues(key, value, store, authenticate);
         if(authenticate){
@@ -444,22 +406,6 @@ public class SecureStorage extends CordovaPlugin {
 
         final String store = args.getString(0);
         final String key = args.getString(1);
-
-        /*
-        String value = getStorage(service).fetch(key);
-        if (value != null) {
-            ExecutorResult result = decryptHelper(value, service, callbackContext);
-
-            if (result.type != ExecutorResultType.ERROR) {
-                callbackContext.success(result.result);
-            }else {
-                callbackContext.error(result.result);
-            }
-        } else {
-            callbackContext.error("Key [" + key + "] not found.");
-        }
-
-         */
 
         if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
             sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
@@ -569,8 +515,6 @@ public class SecureStorage extends CordovaPlugin {
         String store = args.getString(0);
         String key = args.getString(1);
 
-        //getStorage(service).remove(key);
-
         if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
             sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
         }
@@ -607,16 +551,6 @@ public class SecureStorage extends CordovaPlugin {
 
     private boolean fetch(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called fetch action");
-        /*
-        String service = args.getString(0);
-        String key = args.getString(1);
-        String value = getStorage(service).fetch(key);
-        if (value != null) {
-            callbackContext.success(value);
-        } else {
-            callbackContext.error("Key [" + key + "] not found.");
-        }
-         */
         callbackContext.success();
         return true;
     }
