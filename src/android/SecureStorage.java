@@ -623,8 +623,9 @@ public class SecureStorage extends CordovaPlugin {
 
     private boolean keys(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called keys action");
-        String service = args.getString(0);
-        callbackContext.success(new JSONArray(getStorage(service).keys()));
+        String store = args.getString(0);
+        keystoreController.setValues(null, null, store, false);
+        callbackContext.success(new JSONArray(keystoreController.getEncryptedStoreKeys(cordova.getActivity())));
         return true;
     }
 
