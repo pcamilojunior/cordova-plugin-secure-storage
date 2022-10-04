@@ -214,7 +214,7 @@ SecureStorageAndroid.prototype = {
         }
     },
 
-    set: function (success, error, key, value, authenticate) {
+    set: function (success, error, key, value, authenticate = false) {
         try {
             _checkIsString(value);
             if (this.options.native) {
