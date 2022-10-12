@@ -56,6 +56,7 @@ public class SecureStorage extends CordovaPlugin {
     private static final String MIGRATED_FOR_ENCRYPTED = "MIGRATED_FOR_ENCRYPTED";
     private static final String MSG_USER_NOT_AUTHENTICATED = "User not authenticated";
     private static final String ERROR_FORMAT_PREFIX = "OS-PLUG-KSTR-";
+    private static final String MIGRATION_AUTH = "migration_auth";
 
     private KeystoreController keystoreController = null;
     private CallbackContext callbackContext = null;
@@ -260,7 +261,12 @@ public class SecureStorage extends CordovaPlugin {
                     ExecutorResult result = decryptHelper(value, service, callbackContext);
 
                     if(result.type != ExecutorResultType.ERROR){
-                        keystoreController.setValues(key, result.result, service, false);
+                        keystoreController.setValues(
+                                key,
+                                result.result,
+                                service,
+                                Boolean.parseBoolean(cordova.getActivity().getString(this.getBooleanResourceId(cordova.getActivity(), MIGRATION_AUTH)))
+                        );
                         keystoreController.setValueEncrypted(cordova.getActivity());
                         handler.remove(key);
                     }
@@ -283,6 +289,16 @@ public class SecureStorage extends CordovaPlugin {
         } catch (JSONException e){
             Log.d(TAG, e.getMessage());
             callbackContext.error("Migration failed because of JSONException");
+            return false;
+        } catch (Exception e){
+            if(e.getCause() instanceof UserNotAuthenticatedException){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_MIGRATION);
+            }
+            else{
+                Log.d(TAG, e.getMessage());
+                callbackContext.error("Migration failed because of an exception");
+            }
             return false;
         }
     }
@@ -837,6 +853,10 @@ public class SecureStorage extends CordovaPlugin {
     private String formatErrorCode(int code) {
         String stringCode = Integer.toString(code);
         return ERROR_FORMAT_PREFIX + ("0000" + stringCode).substring(stringCode.length());
+    }
+
+    private int getBooleanResourceId(Activity activity, String name) {
+        return activity.getResources().getIdentifier(name, "bool", activity.getPackageName());
     }
    
 }
