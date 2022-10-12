@@ -65,6 +65,10 @@
             <preference name="AndroidXEnabled" value="true"/>
         </config-file>
 
+        <config-file parent="/resources" target="res/values/strings.xml">
+            <bool name="migration_auth">false</bool>
+        </config-file>
+
         <source-file src="src/android/AES.java" target-dir="src/com/crypho/plugins/" />
         <source-file src="src/android/IntentRequest.java" target-dir="src/com/crypho/plugins/" />
         <source-file src="src/android/IntentRequestQueue.java" target-dir="src/com/crypho/plugins/" />
