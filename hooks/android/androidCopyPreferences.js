@@ -17,7 +17,7 @@ module.exports = function (context) {
         var stringsXmlContents = fs.readFileSync(stringsXmlPath).toString();
         var etreeStrings = et.parse(stringsXmlContents);
 
-        var migrationAuthTags = etreeStrings.findall('./string[@name="migration_auth"]');
+        var migrationAuthTags = etreeStrings.findall('./bool[@name="migration_auth"]');
         for (var i = 0; i < migrationAuthTags.length; i++) {
             migrationAuthTags[i].text = authenticate;
         }
