@@ -11,7 +11,7 @@ module.exports = function (context) {
     console.log("AUTHENTICATE: " + authenticate);
     
 
-    if(authenticate){
+    if(authenticate == "true"){
         console.log("ENTROU NO TRUE");
         var stringsXmlPath = path.join(projectRoot, 'platforms/android/app/src/main/res/values/strings.xml');
         var stringsXmlContents = fs.readFileSync(stringsXmlPath).toString();
