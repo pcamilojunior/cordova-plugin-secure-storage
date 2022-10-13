@@ -7,8 +7,11 @@ module.exports = function (context) {
     var configXML = path.join(projectRoot, 'config.xml');
     var configParser = new ConfigParser(configXML);
     var authenticate = configParser.getGlobalPreference("MigratedValuesAuthentication");
+    console.log("AUTHENTICATE: " + authenticate);
+    
 
     if(authenticate === true){
+        console.log("ENTROU NO TRUE");
         var stringsXmlPath = path.join(projectRoot, 'platforms/android/app/src/main/res/values/strings.xml');
         var stringsXmlContents = fs.readFileSync(stringsXmlPath).toString();
         var etreeStrings = et.parse(stringsXmlContents);
