@@ -288,7 +288,7 @@ public class SecureStorage extends CordovaPlugin {
             return true;
         } catch (JSONException e){
             Log.d(TAG, e.getMessage());
-            callbackContext.error("Migration failed because of JSONException");
+            callbackContext.error("MIGRATION FAILED");
             return false;
         } catch (Exception e){
             if(e.getCause() instanceof UserNotAuthenticatedException){
@@ -297,7 +297,7 @@ public class SecureStorage extends CordovaPlugin {
             }
             else{
                 Log.d(TAG, e.getMessage());
-                callbackContext.error("Migration failed because of an exception");
+                callbackContext.error("MIGRATION FAILED");
             }
             return false;
         }
@@ -730,8 +730,7 @@ public class SecureStorage extends CordovaPlugin {
                     break;
 
                 case Activity.RESULT_CANCELED:
-                    //send error saying user cancelled
-                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
+                    callbackContext.error("MIGRATION FAILED");
 
                 default:
                     break;
