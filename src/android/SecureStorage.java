@@ -57,6 +57,7 @@ public class SecureStorage extends CordovaPlugin {
     private static final String MSG_USER_NOT_AUTHENTICATED = "User not authenticated";
     private static final String ERROR_FORMAT_PREFIX = "OS-PLUG-KSTR-";
     private static final String MIGRATION_AUTH = "migration_auth";
+    private static final String CIPHERED_KEY = "_SS_outsystems-local-storage-key";
 
     private KeystoreController keystoreController = null;
     private CallbackContext callbackContext = null;
@@ -248,6 +249,7 @@ public class SecureStorage extends CordovaPlugin {
     private Boolean doDataMigration(CallbackContext callbackContext){
 
         this.callbackContext = callbackContext;
+        Boolean authFromResources = Boolean.parseBoolean(cordova.getActivity().getString(this.getBooleanResourceId(cordova.getActivity(), MIGRATION_AUTH)));
 
         try {
             Enumeration<String> services = SERVICE_STORAGE.keys();
@@ -260,12 +262,17 @@ public class SecureStorage extends CordovaPlugin {
                     String value = handler.fetch(key);
                     ExecutorResult result = decryptHelper(value, service, callbackContext);
 
+                    Boolean toAuthenticate = false;
+                    if(!key.equals(CIPHERED_KEY)){
+                        toAuthenticate = authFromResources;
+                    }
+
                     if(result.type != ExecutorResultType.ERROR){
                         keystoreController.setValues(
                                 key,
                                 result.result,
                                 service,
-                                Boolean.parseBoolean(cordova.getActivity().getString(this.getBooleanResourceId(cordova.getActivity(), MIGRATION_AUTH)))
+                                toAuthenticate
                         );
                         keystoreController.setValueEncrypted(cordova.getActivity());
                         handler.remove(key);
