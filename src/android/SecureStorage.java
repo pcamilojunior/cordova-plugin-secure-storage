@@ -62,6 +62,8 @@ public class SecureStorage extends CordovaPlugin {
     private KeystoreController keystoreController = null;
     private CallbackContext callbackContext = null;
 
+    private String currentStore = "outsystems-key-store";
+
     private final Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
 
     private IntentRequestQueue intentRequestQueue;
@@ -581,9 +583,28 @@ public class SecureStorage extends CordovaPlugin {
     private boolean keys(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called keys action");
         String store = args.getString(0);
-        keystoreController.setValues(null, null, store, false);
-        callbackContext.success(new JSONArray(keystoreController.getEncryptedStoreKeys(cordova.getActivity())));
+        this.currentStore = store;
+        this.callbackContext = callbackContext;
+        try{
+            getKeys(store);
+        }
+        catch (Exception e){
+            if(e.getCause() instanceof UserNotAuthenticatedException){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_KEYS);
+            }
+            else{
+                Log.d(TAG, e.getMessage());
+                callbackContext.error(e.getMessage());
+            }
+        }
         return true;
+    }
+
+    private void getKeys(String store){
+        this.keystoreController.setValues(null, null, store, false);
+        Set<String> keysY = keystoreController.getEncryptedStoreKeys(cordova.getActivity());
+        this.callbackContext.success(new JSONArray(keystoreController.getEncryptedStoreKeys(cordova.getActivity())));
     }
 
     private boolean clear(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
@@ -738,6 +759,20 @@ public class SecureStorage extends CordovaPlugin {
 
                 case Activity.RESULT_CANCELED:
                     callbackContext.error("MIGRATION FAILED");
+
+                default:
+                    break;
+            }
+        }
+        else if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_KEYS){
+            switch (resultCode){
+
+                case Activity.RESULT_OK:
+                    getKeys(currentStore);
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    callbackContext.error(MSG_AUTH_SKIPPED);
 
                 default:
                     break;

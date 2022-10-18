@@ -7,7 +7,7 @@ module.exports = function (context) {
     var projectRoot = context.opts.cordova.project ? context.opts.cordova.project.root : context.opts.projectRoot;
     var configXML = path.join(projectRoot, 'config.xml');
     var configParser = new ConfigParser(configXML);
-    var authenticate = configParser.getGlobalPreference("MigratedValuesAuthentication");    
+    var authenticate = configParser.getGlobalPreference("MigratedKeysAuthentication");    
 
     if(authenticate == "true"){
         var stringsXmlPath = path.join(projectRoot, 'platforms/android/app/src/main/res/values/strings.xml');
