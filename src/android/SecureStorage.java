@@ -603,7 +603,6 @@ public class SecureStorage extends CordovaPlugin {
 
     private void getKeys(String store){
         this.keystoreController.setValues(null, null, store, false);
-        Set<String> keysY = keystoreController.getEncryptedStoreKeys(cordova.getActivity());
         this.callbackContext.success(new JSONArray(keystoreController.getEncryptedStoreKeys(cordova.getActivity())));
     }
 
