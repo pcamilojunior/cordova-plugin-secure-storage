@@ -4,6 +4,11 @@ Changelog
 [Unreleased] - 2022-09-29
 ------------------
 
+- Android | Feat: Set Key Value pair (https://outsystemsrd.atlassian.net/browse/RMET-1843).
+- Android | Feat: Get Key Value pair (https://outsystemsrd.atlassian.net/browse/RMET-1844).
+- Android | Feat: Remove Key Value pair (https://outsystemsrd.atlassian.net/browse/RMET-1845).
+- Android | Feat: Migration process for key-value pairs (https://outsystemsrd.atlassian.net/browse/RMET-1846).
+
 - iOS | Feat: Set Key Value pair (https://outsystemsrd.atlassian.net/browse/RMET-1872).
 - iOS | Feat: Get Key Value pair. It works with both `Store` and `Key` parameters passed or just the first one (https://outsystemsrd.atlassian.net/browse/RMET-1873).
 - iOS | Feat: Delete Key Value pair. It works with both `Store` and `Key` parameters passed or just the first one (https://outsystemsrd.atlassian.net/browse/RMET-1874).
