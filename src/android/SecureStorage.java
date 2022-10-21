@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
@@ -27,6 +28,9 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Pair;
+
+import com.outsystems.plugins.keystore.controller.KeystoreController;
+import com.outsystems.plugins.keystore.controller.KeystoreError;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaArgs;
@@ -49,6 +53,17 @@ public class SecureStorage extends CordovaPlugin {
     private static final String MSG_AUTH_SKIPPED = "Authentication screen skipped";
     public static final String MIGRATED_FOR_SECURITY = "_SS_MIGRATED_FOR_SECURITY";
 
+    private static final String MIGRATED_FOR_ENCRYPTED = "MIGRATED_FOR_ENCRYPTED";
+    private static final String MSG_USER_NOT_AUTHENTICATED = "User not authenticated";
+    private static final String ERROR_FORMAT_PREFIX = "OS-PLUG-KSTR-";
+    private static final String MIGRATION_AUTH = "migration_auth";
+    private static final String CIPHERED_KEY = "_SS_outsystems-local-storage-key";
+
+    private KeystoreController keystoreController = null;
+    private CallbackContext callbackContext = null;
+
+    private String currentStore = "outsystems-key-store";
+
     private final Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
 
     private IntentRequestQueue intentRequestQueue;
@@ -59,6 +74,8 @@ public class SecureStorage extends CordovaPlugin {
         super.pluginInitialize();
 
         intentRequestQueue = new IntentRequestQueue(this);
+
+        keystoreController = new KeystoreController();
 
     }
 
@@ -200,6 +217,7 @@ public class SecureStorage extends CordovaPlugin {
     private boolean init(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called init action");
 
+
         // Get key alias based on the name of the store
         String service = args.getString(0);
         String alias = service2alias(service);
@@ -217,28 +235,89 @@ public class SecureStorage extends CordovaPlugin {
             }
         }
 
-        try {
-
-            if (!isDeviceSecure()) {
-                // Lock screen that requires authentication is not defined
-                Log.e(TAG, MSG_DEVICE_NOT_SECURE);
-                callbackContext.error(MSG_DEVICE_NOT_SECURE);
-
-            } else if (!RSA.isEntryAvailable(alias)) {
-                // Key for alias does not exist
-                handleLockScreen(IntentRequestType.INIT, service, callbackContext);
-
-            } else {
-                // No actions are required to init correctly
-                initSuccess(callbackContext);
+        if(isMigrationToEncryptedNeeded()){
+            Boolean migrationSuccessful = doDataMigration(callbackContext);
+            if(migrationSuccessful){
+                callbackContext.success(1);
             }
-
-        } catch (UserNotAuthenticatedException e) {
-            //
-            handleLockScreen(IntentRequestType.INIT, service, callbackContext);
+        }
+        else{
+            callbackContext.success(1);
         }
 
         return true;
+    }
+
+    private Boolean doDataMigration(CallbackContext callbackContext){
+
+        this.callbackContext = callbackContext;
+        Boolean authFromResources = Boolean.parseBoolean(cordova.getActivity().getString(this.getBooleanResourceId(cordova.getActivity(), MIGRATION_AUTH)));
+
+        try {
+            Enumeration<String> services = SERVICE_STORAGE.keys();
+            while(services.hasMoreElements()){
+                String service = services.nextElement();
+                SharedPreferencesHandler handler = SERVICE_STORAGE.get(service);
+                Set<String> keys = handler.keys();
+
+                for(String key : keys){
+                    String value = handler.fetch(key);
+                    ExecutorResult result = decryptHelper(value, service, callbackContext);
+
+                    Boolean toAuthenticate = false;
+                    if(!key.equals(CIPHERED_KEY)){
+                        toAuthenticate = authFromResources;
+                    }
+
+                    if(result.type != ExecutorResultType.ERROR){
+                        keystoreController.setValues(
+                                key,
+                                result.result,
+                                service,
+                                toAuthenticate
+                        );
+                        keystoreController.setValueEncrypted(cordova.getActivity());
+                        handler.remove(key);
+                    }
+                    else{
+                        if(result.result.equals(MSG_USER_NOT_AUTHENTICATED)){
+                            //in this case, we should request user authentication and try proceeding with the migration
+                            cordova.setActivityResultCallback(this);
+                            keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_MIGRATION);
+                        }
+                        else{
+                            callbackContext.error("MIGRATION FAILED : " + result.result);
+                        }
+                        return false;
+                    }
+                }
+                SERVICE_STORAGE.remove(service);
+            }
+            markAsMigratedToEncrypted();
+            return true;
+        } catch (JSONException e){
+            Log.d(TAG, e.getMessage());
+            callbackContext.error("MIGRATION FAILED");
+            return false;
+        } catch (Exception e){
+            if(e.getCause() instanceof UserNotAuthenticatedException){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_MIGRATION);
+            }
+            else{
+                Log.d(TAG, e.getMessage());
+                callbackContext.error("MIGRATION FAILED");
+            }
+            return false;
+        }
+    }
+
+    private Boolean isMigrationToEncryptedNeeded(){
+        return !cordova.getActivity().getSharedPreferences(MIGRATED_FOR_ENCRYPTED, Context.MODE_PRIVATE).getBoolean(MIGRATED_FOR_ENCRYPTED, false);
+    }
+
+    private void markAsMigratedToEncrypted(){
+        cordova.getActivity().getSharedPreferences(MIGRATED_FOR_ENCRYPTED, Context.MODE_PRIVATE).edit().putBoolean(MIGRATED_FOR_ENCRYPTED, true).apply();
     }
 
     private boolean checkForSecurityMigration() {
@@ -300,21 +379,26 @@ public class SecureStorage extends CordovaPlugin {
     // Store a key/enc-value pair in SharedPreferences
     // The encryption uses the key with an alias associated with the store name
     private boolean set(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
+
         Log.v(TAG, "Called set action");
-        final String service = args.getString(0);
+
+        this.callbackContext = callbackContext;
+
+        final String store = args.getString(0);
         final String key = args.getString(1);
         final String value = args.getString(2);
+        final Boolean authenticate = args.getBoolean(3);
 
-        ExecutorResult result = encrytionHelper(service, key, value);
-
-        if(result.type != ExecutorResultType.ERROR){
-            callbackContext.success();
+        keystoreController.setValues(key, value, store, authenticate);
+        if(authenticate){
+            cordova.setActivityResultCallback(this);
+            keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_SET);
         }
         else{
-            callbackContext.error(result.result);
+            keystoreController.setValueEncrypted(cordova.getActivity());
+            this.callbackContext.success();
         }
         return true;
-
     }
 
     private ExecutorResult encrytionHelper(String service, String key, String value) {
@@ -342,19 +426,31 @@ public class SecureStorage extends CordovaPlugin {
     // The decryption uses the key with an alias associated with the store name
     private boolean get(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called get action");
-        final String service = args.getString(0);
-        final String key = args.getString(1);
-        String value = getStorage(service).fetch(key);
-        if (value != null) {
-            ExecutorResult result = decryptHelper(value, service, callbackContext);
 
-            if (result.type != ExecutorResultType.ERROR) {
-                callbackContext.success(result.result);
-            }else {
-                callbackContext.error(result.result);
+        this.callbackContext = callbackContext;
+
+        final String store = args.getString(0);
+        final String key = args.getString(1);
+
+        if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
+            sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+        }
+        else{
+            Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
+            keystoreController.setValues(key, null, store, authenticate);
+            if(authenticate){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_GET);
             }
-        } else {
-            callbackContext.error("Key [" + key + "] not found.");
+            else{
+                String value = keystoreController.getValueEncrypted(cordova.getActivity());
+                if(value != null){
+                    callbackContext.success(value);
+                }
+                else{
+                    sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                }
+            }
         }
         return true;
     }
@@ -438,10 +534,33 @@ public class SecureStorage extends CordovaPlugin {
     // The remaining actions are the SharedPreferences interface
     private boolean remove(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called remove action");
-        String service = args.getString(0);
+
+        this.callbackContext = callbackContext;
+
+        String store = args.getString(0);
         String key = args.getString(1);
-        getStorage(service).remove(key);
-        callbackContext.success();
+
+        if(!cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).contains(store + key)){
+            sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+        }
+        else{
+            Boolean authenticate = cordova.getActivity().getSharedPreferences(store + key, Context.MODE_PRIVATE).getBoolean(store + key, false);
+            keystoreController.setValues(key, null, store, authenticate);
+
+            if(authenticate){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_REMOVE);
+            }
+            else{
+                Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
+                if(removed){
+                    callbackContext.success();
+                }
+                else{
+                    sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                }
+            }
+        }
         return true;
     }
 
@@ -457,22 +576,34 @@ public class SecureStorage extends CordovaPlugin {
 
     private boolean fetch(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called fetch action");
-        String service = args.getString(0);
-        String key = args.getString(1);
-        String value = getStorage(service).fetch(key);
-        if (value != null) {
-            callbackContext.success(value);
-        } else {
-            callbackContext.error("Key [" + key + "] not found.");
-        }
+        callbackContext.success();
         return true;
     }
 
     private boolean keys(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
         Log.v(TAG, "Called keys action");
-        String service = args.getString(0);
-        callbackContext.success(new JSONArray(getStorage(service).keys()));
+        String store = args.getString(0);
+        this.currentStore = store;
+        this.callbackContext = callbackContext;
+        try{
+            getKeys(store);
+        }
+        catch (Exception e){
+            if(e.getCause() instanceof UserNotAuthenticatedException){
+                cordova.setActivityResultCallback(this);
+                keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_KEYS);
+            }
+            else{
+                Log.d(TAG, e.getMessage());
+                callbackContext.error(e.getMessage());
+            }
+        }
         return true;
+    }
+
+    private void getKeys(String store){
+        this.keystoreController.setValues(null, null, store, false);
+        this.callbackContext.success(new JSONArray(keystoreController.getEncryptedStoreKeys(cordova.getActivity())));
     }
 
     private boolean clear(CordovaArgs args, CallbackContext callbackContext) throws JSONException {
@@ -553,19 +684,115 @@ public class SecureStorage extends CordovaPlugin {
 
         super.onActivityResult(requestCode, resultCode, intent);
 
-        IntentRequest request = intentRequestQueue.notifyActivityResultCalled();
+        if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_SET){
 
-        String service = request.getService();
-        CallbackContext callbackContext = request.getCallbackContext();
+            switch (resultCode){
 
-        // when the user clicks in the back button, the resultCode is 0
-        // when the user authenticate correctly, the resultCode is -1
-        IntentRequestType type = request.getType();
-        if (resultCode == 0) {
-            type = IntentRequestType.AUTHENTICATION_SKIPPED;
+                case Activity.RESULT_OK:
+                    keystoreController.setValueEncrypted(cordova.getActivity());
+                    this.callbackContext.success();
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    //send error saying user cancelled
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
+
+                default:
+                    break;
+            }
         }
+        else if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_GET){
+            switch (resultCode){
 
-        handleCompletedRequest(type, service, callbackContext);
+                case Activity.RESULT_OK:
+                    String value = keystoreController.getValueEncrypted(cordova.getActivity());
+                    if(value != null){
+                        this.callbackContext.success(value);
+                    }
+                    else{
+                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    }
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    //send error saying user cancelled
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
+
+                default:
+                    break;
+            }
+        }
+        else if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_REMOVE){
+            switch (resultCode){
+
+                case Activity.RESULT_OK:
+                    Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
+                    if(removed){
+                        this.callbackContext.success();
+                    }
+                    else{
+                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    }
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    //send error saying user cancelled
+                    sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
+
+                default:
+                    break;
+            }
+        }
+        else if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_MIGRATION){
+            switch (resultCode){
+
+                case Activity.RESULT_OK:
+                    Boolean result = doDataMigration(callbackContext);
+                    if(result){
+                        this.callbackContext.success(1);
+                    }
+                    else{
+                        sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
+                    }
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    callbackContext.error("MIGRATION FAILED");
+
+                default:
+                    break;
+            }
+        }
+        else if(requestCode == KeystoreController.REQUEST_CODE_BIOMETRIC_KEYS){
+            switch (resultCode){
+
+                case Activity.RESULT_OK:
+                    getKeys(currentStore);
+                    break;
+
+                case Activity.RESULT_CANCELED:
+                    callbackContext.error(MSG_AUTH_SKIPPED);
+
+                default:
+                    break;
+            }
+        }
+        //old code below
+        else {
+            IntentRequest request = intentRequestQueue.notifyActivityResultCalled();
+
+            String service = request.getService();
+            CallbackContext callbackContext = request.getCallbackContext();
+
+            // when the user clicks in the back button, the resultCode is 0
+            // when the user authenticate correctly, the resultCode is -1
+            IntentRequestType type = request.getType();
+            if (resultCode == 0) {
+                type = IntentRequestType.AUTHENTICATION_SKIPPED;
+            }
+
+            handleCompletedRequest(type, service, callbackContext);
+        }
     }
 
     private void handleCompletedRequest(IntentRequestType type, String service, CallbackContext callbackContext) {
@@ -651,5 +878,25 @@ public class SecureStorage extends CordovaPlugin {
         return cordova.getActivity().getApplicationContext();
     }
 
+    private void sendError(KeystoreError error){
+        JSONObject jsonResult = new JSONObject();
+        try{
+            jsonResult.put("code", formatErrorCode(error.getCode()));
+            jsonResult.put("message", error.getDescription());
+            this.callbackContext.error(jsonResult);
+        }catch (JSONException e){
+            Log.d(TAG, "Error: JSONException occurred while preparing to send an error.");
+            this.callbackContext.error("There was an error performing the operation.");
+        }
+    }
+
+    private String formatErrorCode(int code) {
+        String stringCode = Integer.toString(code);
+        return ERROR_FORMAT_PREFIX + ("0000" + stringCode).substring(stringCode.length());
+    }
+
+    private int getBooleanResourceId(Activity activity, String name) {
+        return activity.getResources().getIdentifier(name, "bool", activity.getPackageName());
+    }
    
 }

@@ -56,10 +56,20 @@
     </platform>
 
     <platform name="android">
+
+        <hook type="after_prepare" src="hooks/android/androidCopyPreferences.js" />
+
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="SecureStorage" >
                 <param name="android-package" value="com.crypho.plugins.SecureStorage"/>
             </feature>
+            <preference name="GradlePluginKotlinEnabled" value="true" />
+            <preference name="GradlePluginKotlinCodeStyle" value="official" />
+            <preference name="AndroidXEnabled" value="true"/>
+        </config-file>
+
+        <config-file parent="/resources" target="res/values/strings.xml">
+            <bool name="migration_auth">false</bool>
         </config-file>
 
         <source-file src="src/android/AES.java" target-dir="src/com/crypho/plugins/" />
@@ -74,6 +84,8 @@
         <source-file src="src/android/DecryptionExecutor.java" target-dir="src/com/crypho/plugins/" />
         <source-file src="src/android/ExecutorResult.java" target-dir="src/com/crypho/plugins/" />
         <source-file src="src/android/ExecutorResultType.java" target-dir="src/com/crypho/plugins/" />
+
+        <framework src="src/android/build.gradle" custom="true" type="gradleReference" />
 
     </platform>
 

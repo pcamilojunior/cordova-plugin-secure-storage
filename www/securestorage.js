@@ -214,11 +214,11 @@ SecureStorageAndroid.prototype = {
         }
     },
 
-    set: function (success, error, key, value) {
+    set: function (success, error, key, value, authenticate = false) {
         try {
             _checkIsString(value);
             if (this.options.native) {
-                this._native_set(success, error, key, value);
+                this._native_set(success, error, key, value, authenticate);
             } else {
                 this._sjcl_set(success, error, key, value);
             }
@@ -362,14 +362,14 @@ SecureStorageAndroid.prototype = {
         );
     },
 
-    _native_set: function (success, error, key, value) {
+    _native_set: function (success, error, key, value, authenticate) {
         _executeNativeMethod(
             function () {
                 success(key);
             },
             error,
             'set',
-            [this.service, '_SS_' + key, value]
+            [this.service, '_SS_' + key, value, authenticate]
         );
     },
 
