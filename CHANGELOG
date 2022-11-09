@@ -1,7 +1,7 @@
 Changelog
 =========
 
-[Unreleased] - 2022-08-11
+2.6.8-OS14 - 2022-11-09
 ------------------
 
 - Fix: [iOS] Replace the old `OSCore` framework for the new `OSCommonPluginLib` pod.
