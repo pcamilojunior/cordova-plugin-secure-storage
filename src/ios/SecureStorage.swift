@@ -1,4 +1,5 @@
 import OSCommonPluginLib
+import OSKeyStorePluginLib
 
 @objc(SecureStorage)
 class SecureStorage: CDVPlugin {

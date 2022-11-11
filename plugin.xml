@@ -38,19 +38,6 @@
             </feature>
         </config-file>
         
-        <source-file src="src/ios/Factory/OSKSTFactory.swift" />
-
-        <source-file src="src/ios/Error/OSKSTError.swift" />
-
-        <source-file src="src/ios/Extensions/CFArray+Conversion.swift" />
-        <source-file src="src/ios/Extensions/OSStatus+Conversion.swift" />
-
-        <source-file src="src/ios/OSKSTQuery.swift" />
-        <source-file src="src/ios/OSKSTWrapper.swift" />
-
-        <source-file src="src/ios/Protocols/OSKSTActionDelegate.swift" />
-        <source-file src="src/ios/Protocols/OSKSTCallbackDelegate.swift" />
-
         <source-file src="src/ios/SecureStorage.swift"/>
 
         <podspec>
@@ -59,6 +46,7 @@
             </config>
             <pods use-frameworks="true">
                 <pod name="OSCommonPluginLib" spec="1.0.0" />
+                <!--pod name="OSKeyStorePluginLib" spec="1.1.0" /-->
             </pods>
         </podspec>
     </platform>
