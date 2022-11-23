@@ -1,7 +1,7 @@
 Changelog
 =========
 
-Unreleased
+2.6.8-OS15 - 2022-11-23
 ------------------
 
 - Fix: [iOS] When there are no keys associated with a store, return empty string instead of `nil`.
