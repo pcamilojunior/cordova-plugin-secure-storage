@@ -693,8 +693,11 @@ public class SecureStorage extends CordovaPlugin {
                     this.callbackContext.success();
                     break;
 
+                case KeystoreController.RESULT_DEVICE_NOT_SECURE:
+                    sendError(KeystoreError.DEVICE_NOT_SECURE);
+                    break;
+
                 case Activity.RESULT_CANCELED:
-                    //send error saying user cancelled
                     sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
 
                 default:
@@ -714,8 +717,11 @@ public class SecureStorage extends CordovaPlugin {
                     }
                     break;
 
+                case KeystoreController.RESULT_DEVICE_NOT_SECURE:
+                    sendError(KeystoreError.DEVICE_NOT_SECURE);
+                    break;
+
                 case Activity.RESULT_CANCELED:
-                    //send error saying user cancelled
                     sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
 
                 default:
@@ -735,8 +741,11 @@ public class SecureStorage extends CordovaPlugin {
                     }
                     break;
 
+                case KeystoreController.RESULT_DEVICE_NOT_SECURE:
+                    sendError(KeystoreError.DEVICE_NOT_SECURE);
+                    break;
+
                 case Activity.RESULT_CANCELED:
-                    //send error saying user cancelled
                     sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
 
                 default:
@@ -754,6 +763,10 @@ public class SecureStorage extends CordovaPlugin {
                     else{
                         sendError(KeystoreError.AUTHENTICATION_FAILED_ERROR);
                     }
+                    break;
+
+                case KeystoreController.RESULT_DEVICE_NOT_SECURE:
+                    sendError(KeystoreError.DEVICE_NOT_SECURE);
                     break;
 
                 case Activity.RESULT_CANCELED:
