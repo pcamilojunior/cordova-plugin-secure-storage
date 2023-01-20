@@ -4,10 +4,14 @@ Changelog
 Unreleased
 ------------------
 
+2.6.8-OS17 - 2023-01-20
+------------------
+
 ### 20-01-2023
 Android - Add alternative authentication for Android below 11 (https://outsystemsrd.atlassian.net/browse/RMET-2190)
 
 2.6.8-OS16 - 2022-12-19
+------------------
 
 ### 16-12-2022
 - Removed dependency to  jcenter() [RMET-2036](https://outsystemsrd.atlassian.net/browse/RMET-2036)
