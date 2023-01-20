@@ -395,8 +395,14 @@ public class SecureStorage extends CordovaPlugin {
             keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_SET);
         }
         else{
-            keystoreController.setValueEncrypted(cordova.getActivity());
-            this.callbackContext.success();
+            try{
+                keystoreController.setValueEncrypted(cordova.getActivity());
+                this.callbackContext.success();
+            }
+            catch (Exception e){
+                Log.d(TAG, e.getMessage());
+                sendError(KeystoreError.KEYSTORE_GENERAL_ERROR);
+            }
         }
         return true;
     }
@@ -443,12 +449,18 @@ public class SecureStorage extends CordovaPlugin {
                 keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_GET);
             }
             else{
-                String value = keystoreController.getValueEncrypted(cordova.getActivity());
-                if(value != null){
-                    callbackContext.success(value);
+                try{
+                    String value = keystoreController.getValueEncrypted(cordova.getActivity());
+                    if(value != null){
+                        callbackContext.success(value);
+                    }
+                    else{
+                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    }
                 }
-                else{
-                    sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                catch (Exception e){
+                    Log.d(TAG, e.getMessage());
+                    sendError(KeystoreError.KEYSTORE_GENERAL_ERROR);
                 }
             }
         }
@@ -552,12 +564,18 @@ public class SecureStorage extends CordovaPlugin {
                 keystoreController.showBiometricPrompt(cordova.getActivity(), KeystoreController.REQUEST_CODE_BIOMETRIC_REMOVE);
             }
             else{
-                Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
-                if(removed){
-                    callbackContext.success();
+                try{
+                    Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
+                    if(removed){
+                        callbackContext.success();
+                    }
+                    else{
+                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    }
                 }
-                else{
-                    sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                catch (Exception e){
+                    Log.d(TAG, e.getMessage());
+                    sendError(KeystoreError.KEYSTORE_GENERAL_ERROR);
                 }
             }
         }
@@ -689,8 +707,14 @@ public class SecureStorage extends CordovaPlugin {
             switch (resultCode){
 
                 case Activity.RESULT_OK:
-                    keystoreController.setValueEncrypted(cordova.getActivity());
-                    this.callbackContext.success();
+                    try{
+                        keystoreController.setValueEncrypted(cordova.getActivity());
+                        this.callbackContext.success();
+                    }
+                    catch (Exception e){
+                        Log.d(TAG, e.getMessage());
+                        sendError(KeystoreError.KEYSTORE_GENERAL_ERROR);
+                    }
                     break;
 
                 case KeystoreController.RESULT_DEVICE_NOT_SECURE:
@@ -708,12 +732,18 @@ public class SecureStorage extends CordovaPlugin {
             switch (resultCode){
 
                 case Activity.RESULT_OK:
-                    String value = keystoreController.getValueEncrypted(cordova.getActivity());
-                    if(value != null){
-                        this.callbackContext.success(value);
+                    try{
+                        String value = keystoreController.getValueEncrypted(cordova.getActivity());
+                        if(value != null){
+                            this.callbackContext.success(value);
+                        }
+                        else{
+                            sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                        }
                     }
-                    else{
-                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    catch (Exception e){
+                        Log.d(TAG, e.getMessage());
+                        sendError(KeystoreError.KEYSTORE_GENERAL_ERROR);
                     }
                     break;
 
@@ -732,12 +762,18 @@ public class SecureStorage extends CordovaPlugin {
             switch (resultCode){
 
                 case Activity.RESULT_OK:
-                    Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
-                    if(removed){
-                        this.callbackContext.success();
+                    try{
+                        Boolean removed = keystoreController.removeKeyEncrypted(cordova.getActivity());
+                        if(removed){
+                            this.callbackContext.success();
+                        }
+                        else{
+                            sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                        }
                     }
-                    else{
-                        sendError(KeystoreError.KEY_NOT_FOUND_ERROR);
+                    catch (Exception e){
+                        Log.d(TAG, e.getMessage());
+                        sendError(KeystoreError.KEYSTORE_GENERAL_ERROR);
                     }
                     break;
 
