@@ -4,6 +4,9 @@ Changelog
 Unreleased
 ------------------
 
+### 20-01-2023
+Android - Add alternative authentication for Android below 11 (https://outsystemsrd.atlassian.net/browse/RMET-2190)
+
 2.6.8-OS16 - 2022-12-19
 
 ### 16-12-2022
