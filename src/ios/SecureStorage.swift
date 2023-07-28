@@ -23,13 +23,13 @@ class SecureStorage: CDVPlugin {
             // if Protected Data Acess is not yet available, the app observes the `dataBecomeAvailableNotification:`, so that the method resumes when the notification is triggered
             if !UIApplication.shared.isProtectedDataAvailable {
                 self.savedCommand = command
-                NotificationCenter.default.addObserver(self, selector: #selector(dataBecameAvailable(notification:)), name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+                NotificationCenter.default.addObserver(self, selector: #selector(dataBecameAvailable(notification:)), name: NSNotification.Name.UIApplicationProtectedDataDidBecomeAvailable, object: nil)
                 return
             }
             
             // all good, we can remove what was added and proceed.
             self.savedCommand = nil;
-            NotificationCenter.default.removeObserver(self, name: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil)
+            NotificationCenter.default.removeObserver(self, name: NSNotification.Name.UIApplicationProtectedDataDidBecomeAvailable, object: nil)
         }
         
         self.callbackId = command.callbackId
